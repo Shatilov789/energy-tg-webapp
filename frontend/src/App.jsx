@@ -3,6 +3,8 @@ import HomePage from './pages/HomePage';
 import ObjectsPage from './pages/ObjectsPage';
 import StepPage from './pages/StepPage';
 import HistoryPage from './pages/HistoryPage';
+import NotificationsPage from './pages/NotificationsPage';
+import AdminPage from './pages/AdminPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
@@ -13,6 +15,8 @@ export default function App() {
         <Route path="/objects" element={<ObjectsPage />} />
         <Route path="/objects/:objectId/steps/:stepNumber" element={<StepPage />} />
         <Route path="/objects/:objectId/history" element={<HistoryPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>

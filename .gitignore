@@ -39,3 +39,6 @@ Thumbs.db
 *.jpeg
 *.png
 *.gif
+
+# Archives
+*.zip

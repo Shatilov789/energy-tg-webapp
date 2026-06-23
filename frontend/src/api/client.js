@@ -58,4 +58,12 @@ export const api = {
   getUnreadCount: () => request('/notifications/unread-count'),
   markRead: (id) => request(`/notifications/${id}/read`, { method: 'PATCH' }),
   markAllRead: () => request('/notifications/read-all', { method: 'PATCH' }),
+
+  // Admin
+  getAdminObjects: () => request('/admin/objects'),
+  getAdminUsers: () => request('/admin/users'),
+  addComment: (answerId, data) =>
+    request(`/admin/answers/${answerId}/comment`, { method: 'POST', body: JSON.stringify(data) }),
+  unlockAnswer: (answerId) =>
+    request(`/admin/answers/${answerId}/unlock`, { method: 'PATCH' }),
 };

@@ -11,6 +11,7 @@ from backend.app.api.router import api_router
 from backend.app.core.config import settings
 from backend.app.db.base import Base
 from backend.app.db.session import async_session, engine
+from backend.app.services.bot import start_bot, stop_bot
 from backend.app.services.scheduler import start_scheduler, stop_scheduler
 from backend.app.services.seed import seed_dev_admin, seed_scenarios
 
@@ -39,9 +40,11 @@ async def lifespan(app: FastAPI):
             await seed_dev_admin(db)
 
     start_scheduler()
+    await start_bot()
 
     yield
 
+    await stop_bot()
     stop_scheduler()
     await engine.dispose()
     logger.info("Shutdown complete")

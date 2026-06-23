@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
 
     telegram_bot_token: str = ""
+    admin_telegram_id: int = 0
 
     # Reminder: days before sending notification about unfilled step
     reminder_delay_days: int = 2

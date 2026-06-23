@@ -16,7 +16,7 @@ from backend.app.models.user import User, UserRole
 
 def validate_telegram_init_data(init_data: str) -> dict | None:
     """Validate Telegram Web App initData hash. Returns parsed user data or None."""
-    if settings.is_development and not settings.telegram_bot_token:
+    if not settings.telegram_bot_token:
         return None
 
     parsed = parse_qs(init_data)
@@ -47,15 +47,14 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
     init_data = request.headers.get("X-Telegram-Init-Data", "")
 
     # Dev mode: allow header-based auth bypass
-    if settings.is_development and not settings.telegram_bot_token:
+    if settings.is_development:
         dev_tg_id = request.headers.get("X-Dev-Telegram-Id")
-        if not dev_tg_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing auth data")
-        result = await db.execute(select(User).where(User.telegram_id == int(dev_tg_id)))
-        user = result.scalar_one_or_none()
-        if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-        return user
+        if dev_tg_id:
+            result = await db.execute(select(User).where(User.telegram_id == int(dev_tg_id)))
+            user = result.scalar_one_or_none()
+            if not user:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            return user
 
     user_data = validate_telegram_init_data(init_data)
     if not user_data:
