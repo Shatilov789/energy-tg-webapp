@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
 import {
   IconBuildingFactory,
   IconLineDashed,
@@ -24,13 +25,18 @@ const SCENARIO_ICONS = {
   'Проверка оборудования': { icon: IconClipboardCheck, cls: 'ci-p' },
 };
 
+// Кэш последнего успешного снимка — повторный заход на главную рисует
+// сразу без спиннера, пока в фоне идёт тихий рефетч.
+let homeCache = null;
+
 export default function HomePage() {
   const navigate = useNavigate();
-  const [objects, setObjects] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [objects, setObjects] = useState(homeCache?.objects ?? []);
+  const [unreadCount, setUnreadCount] = useState(homeCache?.unreadCount ?? 0);
+  const [user, setUser] = useState(homeCache?.user ?? null);
+  const [loading, setLoading] = useState(!homeCache);
   const [error, setError] = useState(null);
+  const showLoadingText = useDelayedLoadingText(loading);
 
   useEffect(() => { loadData(); }, []);
 
@@ -41,11 +47,13 @@ export default function HomePage() {
         api.getUnreadCount().catch(() => ({ count: 0 })),
         api.getMe().catch(() => null),
       ]);
+      const unreadCountVal = unread.count || unread.unread_count || 0;
       setObjects(objectsData);
-      setUnreadCount(unread.count || unread.unread_count || 0);
+      setUnreadCount(unreadCountVal);
       setUser(me);
+      homeCache = { objects: objectsData, unreadCount: unreadCountVal, user: me };
     } catch (err) {
-      setError(err.message);
+      if (!homeCache) setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -59,7 +67,7 @@ export default function HomePage() {
     return SCENARIO_ICONS[name] || { icon: IconFileText, cls: 'ci-a' };
   }
 
-  if (loading) return <div className="loading">Загрузка...</div>;
+  if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
   if (error) return <div className="error">{error}</div>;
 
   const inProgress = objects.filter(o => o.total_steps > 0 && o.answered_steps < o.total_steps && o.answered_steps > 0);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
+import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -13,6 +14,7 @@ export default function HistoryPage() {
   const [object, setObject] = useState(null);
   const [scenario, setScenario] = useState(null);
   const [loading, setLoading] = useState(true);
+  const showLoadingText = useDelayedLoadingText(loading);
 
   useEffect(() => { loadHistory(); }, [objectId]);
 
@@ -29,7 +31,7 @@ export default function HistoryPage() {
     }
   }
 
-  if (loading) return <div className="loading">Загрузка...</div>;
+  if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
   if (!object) return <div className="error">Объект не найден</div>;
 
   const answeredSteps = object.answers || [];

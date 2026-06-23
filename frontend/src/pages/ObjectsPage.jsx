@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
+import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
 import {
   IconBuildingFactory,
   IconLineDashed,
@@ -33,6 +34,7 @@ export default function ObjectsPage() {
   const [newComment, setNewComment] = useState('');
   const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const showLoadingText = useDelayedLoadingText(loading);
 
   useEffect(() => { loadData(); }, []);
 
@@ -72,7 +74,7 @@ export default function ObjectsPage() {
     return SCENARIO_ICONS[name] || { icon: IconFileText, cls: 'ci-a', chipCls: 'step-chip-default' };
   }
 
-  if (loading) return <div className="loading">Загрузка...</div>;
+  if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
 
   const canSubmit = newName.trim().length > 0 && selectedScenario !== null;
 

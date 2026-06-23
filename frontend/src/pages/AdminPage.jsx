@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
 import {
   IconChartBar,
   IconList,
@@ -19,13 +20,16 @@ function getInitials(firstName, lastName) {
   return f + l || '??';
 }
 
+let adminCache = null;
+
 export default function AdminPage() {
   const navigate = useNavigate();
-  const [objects, setObjects] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [scenarios, setScenarios] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [objects, setObjects] = useState(adminCache?.objects ?? []);
+  const [users, setUsers] = useState(adminCache?.users ?? []);
+  const [scenarios, setScenarios] = useState(adminCache?.scenarios ?? {});
+  const [loading, setLoading] = useState(!adminCache);
   const [error, setError] = useState(null);
+  const showLoadingText = useDelayedLoadingText(loading);
   const [commentModal, setCommentModal] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -49,8 +53,9 @@ export default function AdminPage() {
         } catch {}
       }
       setScenarios(scenMap);
+      adminCache = { objects: objs, users: usrs, scenarios: scenMap };
     } catch (err) {
-      setError(err.message);
+      if (!adminCache) setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -80,7 +85,7 @@ export default function AdminPage() {
     }
   }
 
-  if (loading) return <div className="loading">Загрузка...</div>;
+  if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
   if (error) return <div className="error">{error}</div>;
 
   const userMap = {};

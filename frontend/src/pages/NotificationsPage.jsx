@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
 import {
   IconAlertCircle,
   IconAlertTriangle,
@@ -63,10 +64,13 @@ const DEFAULT_TYPE = {
   dotColor: 'var(--mu)',
 };
 
+let notificationsCache = null;
+
 export default function NotificationsPage() {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState(notificationsCache ?? []);
+  const [loading, setLoading] = useState(!notificationsCache);
+  const showLoadingText = useDelayedLoadingText(loading);
 
   useEffect(() => { load(); }, []);
 
@@ -74,6 +78,7 @@ export default function NotificationsPage() {
     try {
       const data = await api.getNotifications();
       setNotifications(data);
+      notificationsCache = data;
     } catch (err) {
       console.error(err);
     } finally {
@@ -113,7 +118,7 @@ export default function NotificationsPage() {
     return d.toLocaleDateString('ru-RU');
   }
 
-  if (loading) return <div className="loading">Загрузка...</div>;
+  if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
 
   const unread = notifications.filter(n => !n.is_read).length;
 

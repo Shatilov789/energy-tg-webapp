@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
+import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
 import {
   IconChevronLeft,
   IconArrowLeft,
@@ -20,6 +21,7 @@ export default function StepPage() {
   const [saving, setSaving] = useState(false);
   const [answers, setAnswers] = useState({});
   const [savedAnswers, setSavedAnswers] = useState({});
+  const showLoadingText = useDelayedLoadingText(loading);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -46,7 +48,7 @@ export default function StepPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  if (loading) return <div className="loading">Загрузка...</div>;
+  if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
   if (!scenario) return <div className="error">Сценарий не найден</div>;
 
   const allSteps = [...scenario.steps].sort((a, b) => a.step_number - b.step_number);
