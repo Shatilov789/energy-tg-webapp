@@ -27,7 +27,6 @@ const SCENARIO_ICONS = {
 export default function HomePage() {
   const navigate = useNavigate();
   const [objects, setObjects] = useState([]);
-  const [objectMeta, setObjectMeta] = useState({});
   const [unreadCount, setUnreadCount] = useState(0);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,26 +44,6 @@ export default function HomePage() {
       setObjects(objectsData);
       setUnreadCount(unread.count || unread.unread_count || 0);
       setUser(me);
-
-      const meta = {};
-      for (const obj of objectsData) {
-        try {
-          const detail = await api.getObject(obj.id);
-          const scenarioFull = await api.getScenario(obj.scenario_id);
-          const answeredIds = new Set((detail.answers || []).map(a => a.step_id));
-          const sorted = [...scenarioFull.steps].sort((a, b) => a.step_number - b.step_number);
-          const first = sorted.find(s => !answeredIds.has(s.id));
-          meta[obj.id] = {
-            answered: answeredIds.size,
-            total: scenarioFull.steps.length,
-            nextStep: first ? first.step_number : sorted[sorted.length - 1]?.step_number || 1,
-            scenarioName: scenarioFull.name,
-          };
-        } catch {
-          meta[obj.id] = { answered: 0, total: 0, nextStep: 1, scenarioName: '' };
-        }
-      }
-      setObjectMeta(meta);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -72,9 +51,8 @@ export default function HomePage() {
     }
   }
 
-  function openObject(id) {
-    const m = objectMeta[id];
-    navigate(`/objects/${id}/steps/${m?.nextStep || 1}`);
+  function openObject(obj) {
+    navigate(`/objects/${obj.id}/steps/${obj.next_step || 1}`);
   }
 
   function getIcon(name) {
@@ -84,18 +62,9 @@ export default function HomePage() {
   if (loading) return <div className="loading">Загрузка...</div>;
   if (error) return <div className="error">{error}</div>;
 
-  const inProgress = objects.filter(o => {
-    const m = objectMeta[o.id];
-    return m && m.total > 0 && m.answered < m.total && m.answered > 0;
-  });
-  const notStarted = objects.filter(o => {
-    const m = objectMeta[o.id];
-    return m && m.total > 0 && m.answered === 0;
-  });
-  const completed = objects.filter(o => {
-    const m = objectMeta[o.id];
-    return m && m.total > 0 && m.answered >= m.total;
-  });
+  const inProgress = objects.filter(o => o.total_steps > 0 && o.answered_steps < o.total_steps && o.answered_steps > 0);
+  const notStarted = objects.filter(o => o.total_steps > 0 && o.answered_steps === 0);
+  const completed = objects.filter(o => o.total_steps > 0 && o.answered_steps >= o.total_steps);
 
   const isAdmin = user?.role === 'admin';
 
@@ -105,10 +74,7 @@ export default function HomePage() {
         <div style={{ flex: 1 }}>
           <h1>Мои объекты</h1>
           <div className="tbar-s">
-            {objects.filter(o => {
-              const m = objectMeta[o.id];
-              return m && m.total > 0 && m.answered < m.total;
-            }).length} активных
+            {objects.filter(o => o.total_steps > 0 && o.answered_steps < o.total_steps).length} активных
           </div>
         </div>
         <button className="fab-create" onClick={() => navigate('/objects')}>
@@ -172,9 +138,8 @@ export default function HomePage() {
   );
 
   function renderObjectCard(obj, isComplete = false) {
-    const m = objectMeta[obj.id] || {};
-    const pct = m.total > 0 ? Math.round((m.answered / m.total) * 100) : 0;
-    const { icon: IconComp, cls } = getIcon(m.scenarioName);
+    const pct = obj.total_steps > 0 ? Math.round((obj.answered_steps / obj.total_steps) * 100) : 0;
+    const { icon: IconComp, cls } = getIcon(obj.scenario_name);
     const isOverdue = pct === 0 && !isComplete;
 
     let progressColor = 'var(--acc)';
@@ -183,7 +148,7 @@ export default function HomePage() {
     else if (isOverdue) { progressColor = 'var(--err)'; badgeCls = 'bdg-err'; }
 
     return (
-      <div className="obj-card" key={obj.id} onClick={() => openObject(obj.id)}>
+      <div className="obj-card" key={obj.id} onClick={() => openObject(obj)}>
         <div className="obj-row">
           <div className={`ci ${cls}`}>
             <IconComp size={20} />
@@ -195,7 +160,7 @@ export default function HomePage() {
               </span>
               <span className={`bdg ${badgeCls}`}>{pct}%</span>
             </div>
-            <div className="obj-meta">{m.scenarioName}</div>
+            <div className="obj-meta">{obj.scenario_name}</div>
             <div className="obj-progress-bar">
               <div className="obj-progress-fill" style={{ width: `${pct}%`, background: progressColor }} />
             </div>

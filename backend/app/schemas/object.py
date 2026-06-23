@@ -31,3 +31,12 @@ class ObjectResponse(BaseModel):
 class ObjectDetailResponse(ObjectResponse):
     scenario: ScenarioResponse | None = None
     answers: list[AnswerResponse] = []
+
+
+class ObjectListItemResponse(ObjectResponse):
+    """Object enriched with progress meta — avoids N+1 detail fetches on the home screen."""
+
+    scenario_name: str
+    total_steps: int
+    answered_steps: int
+    next_step: int

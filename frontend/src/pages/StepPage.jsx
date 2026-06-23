@@ -6,12 +6,9 @@ import {
   IconArrowLeft,
   IconArrowRight,
   IconSend,
-  IconCheck,
   IconLock,
   IconDeviceFloppy,
 } from '@tabler/icons-react';
-
-const PER_PAGE = 5;
 
 export default function StepPage() {
   const navigate = useNavigate();
@@ -20,11 +17,9 @@ export default function StepPage() {
   const [object, setObject] = useState(null);
   const [scenario, setScenario] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState({});
+  const [saving, setSaving] = useState(false);
   const [answers, setAnswers] = useState({});
   const [savedAnswers, setSavedAnswers] = useState({});
-
-  const page = Math.max(1, Math.ceil(Number(stepNumber) / PER_PAGE));
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -56,26 +51,33 @@ export default function StepPage() {
 
   const allSteps = [...scenario.steps].sort((a, b) => a.step_number - b.step_number);
   const totalSteps = allSteps.length;
-  const totalPages = Math.ceil(totalSteps / PER_PAGE);
-  const pageSteps = allSteps.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const currentIndex = Math.min(Math.max(1, Number(stepNumber)), totalSteps);
+  const step = allSteps[currentIndex - 1];
   const answeredCount = allSteps.filter(s => savedAnswers[s.id]).length;
   const progressPct = totalSteps > 0 ? Math.round((answeredCount / totalSteps) * 100) : 0;
+  const isLastStep = currentIndex >= totalSteps;
 
-  function setAnswer(stepId, text) {
-    setAnswers(prev => ({ ...prev, [stepId]: text }));
+  const saved = !!savedAnswers[step.id];
+  const locked = !!savedAnswers[step.id]?.is_locked;
+  const text = answers[step.id] || '';
+  const savedRecord = savedAnswers[step.id];
+  const dirty = saved ? text.trim() !== savedRecord.answer_text : text.trim().length > 0;
+  const canAdvance = locked || (saved && !dirty);
+
+  function setAnswer(text) {
+    setAnswers(prev => ({ ...prev, [step.id]: text }));
   }
 
-  async function saveAnswer(step) {
-    const text = (answers[step.id] || '').trim();
-    if (!text) return;
+  async function saveAnswer() {
+    const value = text.trim();
+    if (!value) return;
 
-    setSaving(prev => ({ ...prev, [step.id]: true }));
+    setSaving(true);
     try {
-      const existing = savedAnswers[step.id];
-      if (existing && !existing.is_locked) {
-        await api.updateAnswer(objectId, step.id, { answer_text: text });
-      } else if (!existing) {
-        await api.submitAnswer(objectId, step.id, { answer_text: text });
+      if (saved) {
+        await api.updateAnswer(objectId, step.id, { answer_text: value });
+      } else {
+        await api.submitAnswer(objectId, step.id, { answer_text: value });
       }
 
       const freshObj = await api.getObject(objectId);
@@ -88,48 +90,26 @@ export default function StepPage() {
     } catch (err) {
       alert(err.message);
     } finally {
-      setSaving(prev => ({ ...prev, [step.id]: false }));
+      setSaving(false);
     }
   }
 
-  async function saveAllAndNext() {
-    for (const step of pageSteps) {
-      const text = (answers[step.id] || '').trim();
-      const existing = savedAnswers[step.id];
-      if (text && !existing) {
-        await saveAnswer(step);
-      } else if (text && existing && !existing.is_locked && text !== existing.answer_text) {
-        await saveAnswer(step);
-      }
-    }
-    if (page < totalPages) {
-      const nextStep = page * PER_PAGE + 1;
-      navigate(`/objects/${objectId}/steps/${nextStep}`);
-    } else {
-      navigate('/');
-    }
+  function goTo(index) {
+    navigate(`/objects/${objectId}/steps/${index}`);
   }
 
   function goPrev() {
-    if (page > 1) {
-      const prevStep = (page - 2) * PER_PAGE + 1;
-      navigate(`/objects/${objectId}/steps/${prevStep}`);
+    if (currentIndex > 1) goTo(currentIndex - 1);
+  }
+
+  function goNext() {
+    if (!canAdvance) return;
+    if (isLastStep) {
+      navigate('/');
+    } else {
+      goTo(currentIndex + 1);
     }
   }
-
-  function isStepSaved(stepId) { return !!savedAnswers[stepId]; }
-
-  function isStepDirty(step) {
-    const text = (answers[step.id] || '').trim();
-    const saved = savedAnswers[step.id];
-    if (!saved && text) return true;
-    if (saved && text !== saved.answer_text) return true;
-    return false;
-  }
-
-  function isStepLocked(stepId) { return savedAnswers[stepId]?.is_locked; }
-
-  const isLastPage = page >= totalPages;
 
   return (
     <div className="page">
@@ -148,21 +128,23 @@ export default function StepPage() {
             </div>
           </div>
           <span className="bdg bdg-pend">
-            Этап {page}/{totalPages}
+            Вопрос {currentIndex}/{totalSteps}
           </span>
         </div>
 
-        {/* Step pips */}
+        {/* Pips — клик доступен только назад, по истории */}
         <div className="pips">
-          {Array.from({ length: totalPages }, (_, i) => {
-            const slice = allSteps.slice(i * PER_PAGE, (i + 1) * PER_PAGE);
-            const allDone = slice.every(s => isStepSaved(s.id));
-            const isCurrent = i + 1 === page;
+          {allSteps.map((s, i) => {
+            const idx = i + 1;
+            const isDone = !!savedAnswers[s.id];
+            const isCurrent = idx === currentIndex;
+            const canJump = idx <= currentIndex;
             return (
               <div
-                key={i}
-                className={`pip ${allDone ? 'done' : isCurrent ? 'cur' : 'empty'}`}
-                style={{ width: isCurrent ? 20 : 8 }}
+                key={s.id}
+                className={`pip ${isDone ? 'done' : isCurrent ? 'cur' : 'empty'}`}
+                style={{ width: isCurrent ? 20 : 8, cursor: canJump ? 'pointer' : 'default' }}
+                onClick={() => canJump && goTo(idx)}
               />
             );
           })}
@@ -176,66 +158,56 @@ export default function StepPage() {
         </div>
       </div>
 
-      {/* Вопросы */}
+      {/* Вопрос */}
       <div className="sc" style={{ paddingTop: 16, paddingBottom: 16 }}>
-        {pageSteps.map(step => {
-          const saved = isStepSaved(step.id);
-          const locked = isStepLocked(step.id);
-          const dirty = isStepDirty(step);
-          const isSaving = saving[step.id];
+        <div className={`qblock ${saved ? 'answered' : ''} ${locked ? 'locked' : ''}`}>
+          <div className="qnum">
+            <span className={`qnum-n ${locked ? 'locked' : saved ? 'answered' : ''}`}>
+              {step.step_number}
+            </span>
+            <span className="qtitle">{step.question_text}</span>
+          </div>
 
-          return (
-            <div key={step.id} className={`qblock ${saved ? 'answered' : ''} ${locked ? 'locked' : ''}`}>
-              <div className="qnum">
-                <span className={`qnum-n ${locked ? 'locked' : saved ? 'answered' : ''}`}>
-                  {step.step_number}
-                </span>
-                <span className="qtitle">{step.question_text}</span>
-              </div>
+          {step.description && <div className="qhint">{step.description}</div>}
 
-              {step.description && <div className="qhint">{step.description}</div>}
+          <textarea
+            className="qtextarea"
+            placeholder="Введите ответ..."
+            value={text}
+            onChange={e => setAnswer(e.target.value)}
+            rows={4}
+            disabled={locked}
+          />
 
-              {locked ? (
-                <div className="lock-tag">
-                  <IconLock size={14} />
-                  Заблокировано — только администратор может разблокировать
-                </div>
-              ) : (
-                <>
-                  <textarea
-                    className="qtextarea"
-                    placeholder="Введите ответ..."
-                    value={answers[step.id] || ''}
-                    onChange={e => setAnswer(step.id, e.target.value)}
-                    rows={3}
-                  />
-
-                  {saved && !dirty && (
-                    <div className="saved-tag">
-                      <IconDeviceFloppy size={13} /> Сохранено
-                    </div>
-                  )}
-
-                  {dirty && (
-                    <button
-                      className="btn-p"
-                      style={{ marginTop: 10, height: 36, fontSize: 12, borderRadius: 10 }}
-                      onClick={() => saveAnswer(step)}
-                      disabled={isSaving || !(answers[step.id] || '').trim()}
-                    >
-                      {isSaving ? 'Сохранение...' : 'Сохранить ответ'}
-                    </button>
-                  )}
-                </>
-              )}
+          {locked && (
+            <div className="lock-tag">
+              <IconLock size={14} />
+              Заблокировано — только администратор может разблокировать
             </div>
-          );
-        })}
+          )}
+
+          {!locked && saved && !dirty && (
+            <div className="saved-tag">
+              <IconDeviceFloppy size={13} /> Сохранено
+            </div>
+          )}
+
+          {!locked && dirty && (
+            <button
+              className="btn-p"
+              style={{ marginTop: 10, height: 36, fontSize: 12, borderRadius: 10 }}
+              onClick={saveAnswer}
+              disabled={saving || !text.trim()}
+            >
+              {saving ? 'Сохранение...' : 'Сохранить ответ'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Навигация */}
       <div className="step-nav">
-        {page > 1 ? (
+        {currentIndex > 1 ? (
           <button className="btn-bk" onClick={goPrev}>
             <IconArrowLeft size={20} />
           </button>
@@ -243,13 +215,14 @@ export default function StepPage() {
           <div style={{ width: 44 }} />
         )}
         <button
-          className={`btn-p ${isLastPage ? 'green' : ''}`}
-          onClick={saveAllAndNext}
+          className={`btn-p ${isLastStep ? 'green' : ''}`}
+          onClick={goNext}
+          disabled={!canAdvance}
         >
-          {isLastPage ? (
+          {isLastStep ? (
             <><IconSend size={18} /> Отправить отчёт</>
           ) : (
-            <>Далее</>
+            <>Далее <IconArrowRight size={18} /></>
           )}
         </button>
       </div>

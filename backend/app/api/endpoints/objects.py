@@ -15,19 +15,19 @@ from backend.app.models.scenario import Scenario
 from backend.app.models.user import User
 from backend.app.services.audit import log_action
 from backend.app.schemas.error import RESPONSES_AUTH, RESPONSES_CRUD, RESPONSES_CRUD_CONFLICT
-from backend.app.schemas.object import ObjectCreate, ObjectResponse, ObjectDetailResponse
+from backend.app.schemas.object import ObjectCreate, ObjectDetailResponse, ObjectListItemResponse, ObjectResponse
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/objects", tags=["objects"])
 
 
-@router.get("/", response_model=list[ObjectResponse], responses=RESPONSES_AUTH)
+@router.get("/", response_model=list[ObjectListItemResponse], responses=RESPONSES_AUTH)
 async def list_my_objects(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List objects where current user is creator or shared worker."""
+    """List objects where current user is creator or shared worker, with progress meta in one query."""
     result = await db.execute(
         select(Object)
         .outerjoin(ObjectWorker, ObjectWorker.object_id == Object.id)
@@ -35,11 +35,30 @@ async def list_my_objects(
             (Object.created_by_id == current_user.id) | (ObjectWorker.user_id == current_user.id),
             Object.is_deleted.is_(False),
         )
-        .options(selectinload(Object.scenario))
+        .options(
+            selectinload(Object.scenario).selectinload(Scenario.steps),
+            selectinload(Object.answers),
+        )
         .distinct()
         .order_by(Object.updated_at.desc())
     )
-    return result.scalars().all()
+    objects = result.scalars().all()
+
+    items = []
+    for obj in objects:
+        steps = sorted(obj.scenario.steps, key=lambda s: s.step_number) if obj.scenario else []
+        answered_ids = {a.step_id for a in obj.answers}
+        next_step_obj = next((s for s in steps if s.id not in answered_ids), None)
+        items.append(
+            ObjectListItemResponse(
+                **ObjectResponse.model_validate(obj).model_dump(),
+                scenario_name=obj.scenario.name if obj.scenario else "",
+                total_steps=len(steps),
+                answered_steps=len(answered_ids),
+                next_step=next_step_obj.step_number if next_step_obj else (steps[-1].step_number if steps else 1),
+            )
+        )
+    return items
 
 
 @router.get("/{object_id}", response_model=ObjectDetailResponse, responses=RESPONSES_CRUD)

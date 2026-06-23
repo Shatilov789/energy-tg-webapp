@@ -5,6 +5,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.core.config import settings
 from backend.app.models.scenario import Scenario, ScenarioStep
 from backend.app.models.user import User, UserRole
 
@@ -124,8 +125,9 @@ async def seed_dev_admin(db: AsyncSession) -> None:
     if result.scalar_one_or_none():
         return
 
+    admin_telegram_id = settings.admin_telegram_id or 123456789
     admin = User(
-        telegram_id=123456789,
+        telegram_id=admin_telegram_id,
         first_name="Dev",
         last_name="Admin",
         username="dev_admin",
