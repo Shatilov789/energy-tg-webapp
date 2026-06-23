@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
@@ -9,8 +9,8 @@ import {
   IconTool,
   IconClipboardCheck,
   IconChevronLeft,
+  IconChevronDown,
   IconCheck,
-  IconCircle,
   IconCircleCheck,
   IconFileText,
 } from '@tabler/icons-react';
@@ -34,9 +34,22 @@ export default function ObjectsPage() {
   const [newComment, setNewComment] = useState('');
   const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const showLoadingText = useDelayedLoadingText(loading);
+  const dropdownRef = useRef(null);
 
   useEffect(() => { loadData(); }, []);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function onClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [dropdownOpen]);
 
   async function loadData() {
     try {
@@ -113,53 +126,84 @@ export default function ObjectsPage() {
 
         <div className="fgrp">
           <label className="flbl">Сценарий инспекции</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-            {scenarios.map(s => {
-              const { icon: IconComp, cls, chipCls } = getIcon(s.name);
-              const isSel = selectedScenario?.id === s.id;
-              const steps = s.steps || [];
-              return (
-                <div
-                  key={s.id}
-                  className={`scen-card ${isSel ? 'sel' : ''}`}
-                  onClick={() => setSelectedScenario(s)}
-                >
-                  <div className="scen-top">
-                    <div className={`ci ${cls}`} style={{ width: 36, height: 36 }}>
-                      <IconComp size={20} />
+          <div className="scen-select" ref={dropdownRef}>
+            <button
+              type="button"
+              className="scen-select-trigger"
+              onClick={() => setDropdownOpen(o => !o)}
+            >
+              {selectedScenario ? (() => {
+                const { icon: IconComp, cls } = getIcon(selectedScenario.name);
+                return (
+                  <span className="scen-select-current">
+                    <span className={`ci ${cls}`} style={{ width: 28, height: 28 }}>
+                      <IconComp size={16} />
+                    </span>
+                    {selectedScenario.name}
+                  </span>
+                );
+              })() : (
+                <span className="scen-select-placeholder">Выберите сценарий...</span>
+              )}
+              <IconChevronDown size={18} className={`scen-select-arrow ${dropdownOpen ? 'open' : ''}`} />
+            </button>
+
+            {dropdownOpen && (
+              <div className="scen-select-panel">
+                {scenarios.map(s => {
+                  const { icon: IconComp, cls } = getIcon(s.name);
+                  const isSel = selectedScenario?.id === s.id;
+                  return (
+                    <div
+                      key={s.id}
+                      className={`scen-select-option ${isSel ? 'sel' : ''}`}
+                      onClick={() => { setSelectedScenario(s); setDropdownOpen(false); }}
+                    >
+                      <span className={`ci ${cls}`} style={{ width: 28, height: 28 }}>
+                        <IconComp size={16} />
+                      </span>
+                      <span style={{ flex: 1 }}>{s.name}</span>
+                      {isSel && <IconCheck size={16} color="var(--acc)" />}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div className="scen-title">{s.name}</div>
-                      <div className="scen-sub">
-                        {steps.length} вопросов · {s.description}
-                      </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {selectedScenario && (() => {
+            const { icon: IconComp, cls, chipCls } = getIcon(selectedScenario.name);
+            const steps = selectedScenario.steps || [];
+            return (
+              <div className="scen-card sel" style={{ marginTop: 8 }}>
+                <div className="scen-top">
+                  <div className={`ci ${cls}`} style={{ width: 36, height: 36 }}>
+                    <IconComp size={20} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div className="scen-title">{selectedScenario.name}</div>
+                    <div className="scen-sub">
+                      {steps.length} вопросов · {selectedScenario.description}
                     </div>
-                    {isSel ? (
-                      <div className="sel-check">
-                        <IconCheck size={14} color="#0F1117" strokeWidth={3} />
-                      </div>
-                    ) : (
-                      <IconCircle size={22} color="var(--mu2)" />
+                  </div>
+                </div>
+                {steps.length > 0 && (
+                  <div className="scen-steps">
+                    {steps.slice(0, 5).map((st, i) => (
+                      <span className={`step-chip ${chipCls}`} key={i}>
+                        {st.question_text?.length > 18
+                          ? st.question_text.substring(0, 18) + '…'
+                          : st.question_text}
+                      </span>
+                    ))}
+                    {steps.length > 5 && (
+                      <span className="step-chip step-chip-default">+{steps.length - 5}</span>
                     )}
                   </div>
-                  {steps.length > 0 && (
-                    <div className="scen-steps">
-                      {steps.slice(0, 5).map((st, i) => (
-                        <span className={`step-chip ${chipCls}`} key={i}>
-                          {st.question_text?.length > 18
-                            ? st.question_text.substring(0, 18) + '…'
-                            : st.question_text}
-                        </span>
-                      ))}
-                      {steps.length > 5 && (
-                        <span className="step-chip step-chip-default">+{steps.length - 5}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         <button

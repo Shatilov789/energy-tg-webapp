@@ -53,6 +53,14 @@ export const api = {
   updateAnswer: (objectId, stepId, data) =>
     request(`/objects/${objectId}/steps/${stepId}/answer`, { method: 'PUT', body: JSON.stringify(data) }),
 
+  // Step discussion
+  getStepComments: (objectId, stepId) => request(`/objects/${objectId}/steps/${stepId}/comments`),
+  addStepComment: (objectId, stepId, data) =>
+    request(`/objects/${objectId}/steps/${stepId}/comments`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // Colleagues
+  getColleagues: () => request('/users/'),
+
   // Notifications
   getNotifications: () => request('/notifications/'),
   getUnreadCount: () => request('/notifications/unread-count'),

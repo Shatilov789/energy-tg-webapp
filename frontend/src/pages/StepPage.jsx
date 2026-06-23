@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
+import { daysSinceLabel } from '../utils/date';
+import { getScenarioIcon } from '../scenarioIcons';
 import {
   IconChevronLeft,
   IconArrowLeft,
@@ -9,7 +11,19 @@ import {
   IconSend,
   IconLock,
   IconDeviceFloppy,
+  IconMessageCircle,
+  IconAt,
+  IconSpeakerphone,
 } from '@tabler/icons-react';
+
+function getInitials(firstName, lastName) {
+  return `${(firstName || '?')[0]}${(lastName || '')[0] || ''}`.toUpperCase();
+}
+
+function formatCommentTime(dateStr) {
+  const d = new Date(dateStr);
+  return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
 
 export default function StepPage() {
   const navigate = useNavigate();
@@ -21,6 +35,9 @@ export default function StepPage() {
   const [saving, setSaving] = useState(false);
   const [answers, setAnswers] = useState({});
   const [savedAnswers, setSavedAnswers] = useState({});
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [postingComment, setPostingComment] = useState(false);
   const showLoadingText = useDelayedLoadingText(loading);
 
   const loadData = useCallback(async () => {
@@ -48,6 +65,18 @@ export default function StepPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const currentStepId = scenario
+    ? [...scenario.steps].sort((a, b) => a.step_number - b.step_number)[
+        Math.min(Math.max(1, Number(stepNumber)), scenario.steps.length) - 1
+      ]?.id
+    : null;
+
+  useEffect(() => {
+    if (!currentStepId) return;
+    setCommentText('');
+    api.getStepComments(objectId, currentStepId).then(setComments).catch(() => setComments([]));
+  }, [objectId, currentStepId]);
+
   if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
   if (!scenario) return <div className="error">Сценарий не найден</div>;
 
@@ -63,6 +92,7 @@ export default function StepPage() {
   const locked = !!savedAnswers[step.id]?.is_locked;
   const text = answers[step.id] || '';
   const savedRecord = savedAnswers[step.id];
+  const adminComments = savedRecord?.comments || [];
   const dirty = saved ? text.trim() !== savedRecord.answer_text : text.trim().length > 0;
   const canAdvance = locked || (saved && !dirty);
 
@@ -96,6 +126,24 @@ export default function StepPage() {
     }
   }
 
+  async function postComment() {
+    const value = commentText.trim();
+    if (!value) return;
+
+    setPostingComment(true);
+    try {
+      const created = await api.addStepComment(objectId, step.id, {
+        comment_text: value,
+      });
+      setComments(prev => [...prev, created]);
+      setCommentText('');
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setPostingComment(false);
+    }
+  }
+
   function goTo(index) {
     navigate(`/objects/${objectId}/steps/${index}`);
   }
@@ -113,73 +161,65 @@ export default function StepPage() {
     }
   }
 
+  const { icon: ScenIcon, cls: scenIconCls } = getScenarioIcon(scenario?.name);
+
   return (
     <div className="page">
       {/* Шапка */}
-      <div className="qstep-hdr">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+      <div className="qhdr">
+        <div className="qhdr-top">
           <button className="btn-bk" onClick={() => navigate('/')}>
             <IconChevronLeft size={18} />
           </button>
+          <div className={`ci qhdr-icon ${scenIconCls}`}>
+            <ScenIcon size={16} />
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {object?.name}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--mu)' }}>
-              {scenario?.name}
+            <div className="qhdr-title">{object?.name}</div>
+            <div className="qhdr-sub">
+              {scenario?.name} · в работе {daysSinceLabel(object?.created_at)}
             </div>
           </div>
-          <span className="bdg bdg-pend">
-            Вопрос {currentIndex}/{totalSteps}
-          </span>
         </div>
 
-        {/* Pips — клик доступен только назад, по истории */}
-        <div className="pips">
-          {allSteps.map((s, i) => {
-            const idx = i + 1;
-            const isDone = !!savedAnswers[s.id];
-            const isCurrent = idx === currentIndex;
-            const canJump = idx <= currentIndex;
-            return (
-              <div
-                key={s.id}
-                className={`pip ${isDone ? 'done' : isCurrent ? 'cur' : 'empty'}`}
-                style={{ width: isCurrent ? 20 : 8, cursor: canJump ? 'pointer' : 'default' }}
-                onClick={() => canJump && goTo(idx)}
-              />
-            );
-          })}
+        <div className="qprog-bar">
+          <div className="qprog-fill" style={{ width: `${progressPct}%` }} />
         </div>
-
-        <div className="qprog">
-          <div className="qprog-bar">
-            <div className="qprog-fill" style={{ width: `${progressPct}%` }} />
-          </div>
-          <div className="qprog-lbl">{answeredCount} / {totalSteps} вопросов</div>
+        <div className="qhdr-step">
+          Шаг {currentIndex} из {totalSteps} · {progressPct}%
         </div>
       </div>
 
       {/* Вопрос */}
-      <div className="sc" style={{ paddingTop: 16, paddingBottom: 16 }}>
-        <div className={`qblock ${saved ? 'answered' : ''} ${locked ? 'locked' : ''}`}>
-          <div className="qnum">
-            <span className={`qnum-n ${locked ? 'locked' : saved ? 'answered' : ''}`}>
-              {step.step_number}
-            </span>
-            <span className="qtitle">{step.question_text}</span>
-          </div>
+      <div className="sc" style={{ paddingTop: 8, paddingBottom: 16 }}>
+        <div className="qcard">
+          <div className="qtitle">{step.question_text}</div>
 
           {step.description && <div className="qhint">{step.description}</div>}
 
           <textarea
-            className="qtextarea"
+            className={`qtextarea ${locked ? 'locked' : ''} ${saved && !dirty ? 'answered' : ''}`}
             placeholder="Введите ответ..."
             value={text}
             onChange={e => setAnswer(e.target.value)}
-            rows={4}
+            rows={5}
             disabled={locked}
           />
+
+          {adminComments.length > 0 && (
+            <div className="admin-comment-box">
+              <div className="admin-comment-hdr">
+                <IconSpeakerphone size={14} />
+                Комментарий администратора
+              </div>
+              {adminComments.map(c => (
+                <div className="admin-comment-item" key={c.id}>
+                  <div className="admin-comment-text">{c.comment_text}</div>
+                  <div className="admin-comment-time">{formatCommentTime(c.created_at)}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {locked && (
             <div className="lock-tag">
@@ -197,13 +237,63 @@ export default function StepPage() {
           {!locked && dirty && (
             <button
               className="btn-p"
-              style={{ marginTop: 10, height: 36, fontSize: 12, borderRadius: 10 }}
+              style={{ marginTop: 12, height: 40, fontSize: 13, borderRadius: 12 }}
               onClick={saveAnswer}
               disabled={saving || !text.trim()}
             >
               {saving ? 'Сохранение...' : 'Сохранить ответ'}
             </button>
           )}
+        </div>
+
+        {/* Обсуждение шага */}
+        <div className="discuss-block">
+          <div className="discuss-hdr">
+            <IconMessageCircle size={16} />
+            Обсуждение шага {comments.length > 0 && `(${comments.length})`}
+          </div>
+
+          {comments.length > 0 && (
+            <div className="discuss-list">
+              {comments.map(c => (
+                <div className="discuss-msg" key={c.id}>
+                  <div className="discuss-avatar">{getInitials(c.author.first_name, c.author.last_name)}</div>
+                  <div className="discuss-body">
+                    <div className="discuss-meta">
+                      <span className="discuss-author">{c.author.first_name} {c.author.last_name || ''}</span>
+                      {c.recipient && (
+                        <span className="discuss-to">
+                          <IconAt size={11} /> {c.recipient.first_name} {c.recipient.last_name || ''}
+                        </span>
+                      )}
+                      <span className="discuss-time">{formatCommentTime(c.created_at)}</span>
+                    </div>
+                    <div className="discuss-text">{c.comment_text}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="discuss-form">
+            <div className="discuss-inputwrap">
+              <textarea
+                className="discuss-textarea"
+                placeholder="Написать сообщение..."
+                value={commentText}
+                onChange={e => setCommentText(e.target.value)}
+                rows={1}
+              />
+              <button
+                className="discuss-send"
+                onClick={postComment}
+                disabled={postingComment || !commentText.trim()}
+                aria-label="Отправить"
+              >
+                <IconSend size={16} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

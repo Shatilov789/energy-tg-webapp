@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from backend.app.models.object import ObjectStatus
 from backend.app.schemas.answer import AnswerResponse
-from backend.app.schemas.scenario import ScenarioResponse
+from backend.app.schemas.scenario import ScenarioResponse, ScenarioWithStepsResponse
 
 
 class ObjectCreate(BaseModel):
@@ -40,3 +40,10 @@ class ObjectListItemResponse(ObjectResponse):
     total_steps: int
     answered_steps: int
     next_step: int
+
+
+class AdminObjectResponse(ObjectResponse):
+    """Object with full scenario steps + answers — used by admin oversight list."""
+
+    scenario: ScenarioWithStepsResponse | None = None
+    answers: list[AnswerResponse] = []

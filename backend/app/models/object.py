@@ -34,6 +34,7 @@ class Object(SoftDeleteMixin, Base):
     creator: Mapped["User"] = relationship(back_populates="created_objects")
     workers: Mapped[list["ObjectWorker"]] = relationship(back_populates="object", cascade="all, delete-orphan")
     answers: Mapped[list["ObjectAnswer"]] = relationship(back_populates="object", cascade="all, delete-orphan")
+    step_comments: Mapped[list["StepComment"]] = relationship(back_populates="object", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Object {self.id} '{self.name}' status={self.status.value}>"

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from backend.app.api.endpoints import admin, auth, notifications, objects, scenarios, steps
+from backend.app.api.endpoints import admin, auth, notifications, objects, scenarios, steps, users
 
 api_router = APIRouter(prefix="/api")
 
@@ -12,3 +12,4 @@ api_router.include_router(objects.router)
 api_router.include_router(steps.router)
 api_router.include_router(admin.router)
 api_router.include_router(notifications.router)
+api_router.include_router(users.router)

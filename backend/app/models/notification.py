@@ -14,6 +14,7 @@ class NotificationType(str, enum.Enum):
     ADMIN_COMMENT = "admin_comment"
     OBJECT_SHARED = "object_shared"
     STEP_UNLOCKED = "step_unlocked"
+    STEP_COMMENT = "step_comment"
 
 
 class Notification(Base):
@@ -25,6 +26,8 @@ class Notification(Base):
     title: Mapped[str] = mapped_column(String(255))
     message: Mapped[str] = mapped_column(Text)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    object_id: Mapped[int | None] = mapped_column(ForeignKey("objects.id", ondelete="SET NULL"), nullable=True)
+    step_number: Mapped[int | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships

@@ -2,28 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
+import { formatDate, daysSinceLabel } from '../utils/date';
 import {
-  IconBuildingFactory,
-  IconLineDashed,
-  IconBolt,
-  IconTool,
-  IconClipboardCheck,
   IconPlus,
   IconBell,
   IconList,
   IconLayoutDashboard,
   IconAlertCircle,
-  IconFileText,
   IconClipboardOff,
 } from '@tabler/icons-react';
-
-const SCENARIO_ICONS = {
-  'Подстанция': { icon: IconBuildingFactory, cls: 'ci-a' },
-  'КЛ линия': { icon: IconLineDashed, cls: 'ci-b' },
-  'Трансформатор': { icon: IconBolt, cls: 'ci-r' },
-  'Ремонт': { icon: IconTool, cls: 'ci-g' },
-  'Проверка оборудования': { icon: IconClipboardCheck, cls: 'ci-p' },
-};
+import { getScenarioIcon } from '../scenarioIcons';
 
 // Кэш последнего успешного снимка — повторный заход на главную рисует
 // сразу без спиннера, пока в фоне идёт тихий рефетч.
@@ -61,10 +49,6 @@ export default function HomePage() {
 
   function openObject(obj) {
     navigate(`/objects/${obj.id}/steps/${obj.next_step || 1}`);
-  }
-
-  function getIcon(name) {
-    return SCENARIO_ICONS[name] || { icon: IconFileText, cls: 'ci-a' };
   }
 
   if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
@@ -147,7 +131,7 @@ export default function HomePage() {
 
   function renderObjectCard(obj, isComplete = false) {
     const pct = obj.total_steps > 0 ? Math.round((obj.answered_steps / obj.total_steps) * 100) : 0;
-    const { icon: IconComp, cls } = getIcon(obj.scenario_name);
+    const { icon: IconComp, cls } = getScenarioIcon(obj.scenario_name);
     const isOverdue = pct === 0 && !isComplete;
 
     let progressColor = 'var(--acc)';
@@ -168,7 +152,9 @@ export default function HomePage() {
               </span>
               <span className={`bdg ${badgeCls}`}>{pct}%</span>
             </div>
-            <div className="obj-meta">{obj.scenario_name}</div>
+            <div className="obj-meta">
+              {obj.scenario_name} · создан {formatDate(obj.created_at)} · {daysSinceLabel(obj.created_at)}
+            </div>
             <div className="obj-progress-bar">
               <div className="obj-progress-fill" style={{ width: `${pct}%`, background: progressColor }} />
             </div>

@@ -13,6 +13,8 @@ import {
   IconChecks,
   IconList,
   IconPlus,
+  IconLayoutDashboard,
+  IconMessageCircle,
 } from '@tabler/icons-react';
 
 const TYPE_CONFIG = {
@@ -29,8 +31,8 @@ const TYPE_CONFIG = {
     icon: IconLockOpen,
     bgColor: 'rgba(149,82,204,.12)',
     color: 'var(--purple)',
-    actionLabel: null,
-    actionColor: null,
+    actionLabel: 'Редактировать',
+    actionColor: 'var(--purple)',
     unreadCls: 'ni-unread-purple',
     dotColor: 'var(--purple)',
   },
@@ -52,6 +54,15 @@ const TYPE_CONFIG = {
     unreadCls: 'ni-unread-success',
     dotColor: 'var(--ok)',
   },
+  step_comment: {
+    icon: IconMessageCircle,
+    bgColor: 'rgba(59,139,235,.12)',
+    color: 'var(--acc2)',
+    actionLabel: 'Посмотреть',
+    actionColor: 'var(--acc2)',
+    unreadCls: 'ni-unread-info',
+    dotColor: 'var(--acc2)',
+  },
 };
 
 const DEFAULT_TYPE = {
@@ -65,20 +76,25 @@ const DEFAULT_TYPE = {
 };
 
 let notificationsCache = null;
+let notifUserCache = null;
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState(notificationsCache ?? []);
+  const [user, setUser] = useState(notifUserCache ?? null);
   const [loading, setLoading] = useState(!notificationsCache);
   const showLoadingText = useDelayedLoadingText(loading);
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => { load(); }, []);
 
   async function load() {
     try {
-      const data = await api.getNotifications();
+      const [data, me] = await Promise.all([api.getNotifications(), api.getMe().catch(() => null)]);
       setNotifications(data);
       notificationsCache = data;
+      setUser(me);
+      notifUserCache = me;
     } catch (err) {
       console.error(err);
     } finally {
@@ -170,7 +186,14 @@ export default function NotificationsPage() {
                         <button
                           className="ni-action"
                           style={{ background: cfg.actionColor }}
-                          onClick={e => { e.stopPropagation(); navigate('/'); }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (n.object_id && n.step_number) {
+                              navigate(`/objects/${n.object_id}/steps/${n.step_number}`);
+                            } else {
+                              navigate('/');
+                            }
+                          }}
                         >
                           {cfg.actionLabel}
                         </button>
@@ -207,6 +230,12 @@ export default function NotificationsPage() {
           <span>Оповещения</span>
           <div className="tab-indicator" />
         </button>
+        {isAdmin && (
+          <button className="tab" onClick={() => navigate('/admin')}>
+            <IconLayoutDashboard size={22} />
+            <span>Админ</span>
+          </button>
+        )}
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from backend.app.core.security import get_current_user
 from backend.app.db.session import get_db
+from backend.app.models.answer import ObjectAnswer
 from backend.app.models.audit import AuditAction
 from backend.app.models.object import Object, ObjectStatus, ObjectWorker
 from backend.app.models.scenario import Scenario
@@ -133,7 +134,7 @@ async def _get_object_with_access(object_id: int, user: User, db: AsyncSession) 
         .where(Object.id == object_id)
         .options(
             selectinload(Object.scenario).selectinload(Scenario.steps),
-            selectinload(Object.answers),
+            selectinload(Object.answers).selectinload(ObjectAnswer.comments),
             selectinload(Object.workers),
         )
     )

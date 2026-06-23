@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
+import { daysSinceLabel } from '../utils/date';
 import {
   IconChartBar,
   IconList,
@@ -181,7 +182,7 @@ export default function AdminPage() {
                     {obj.name}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--mu)' }}>
-                    {creatorName} · {obj.answersCount}/{obj.stepsCount} вопр.
+                    {creatorName} · {obj.answersCount}/{obj.stepsCount} вопр. · {daysSinceLabel(obj.created_at)}
                   </div>
                 </div>
                 <span className={`bdg ${badgeCls}`}>{badgeText}</span>

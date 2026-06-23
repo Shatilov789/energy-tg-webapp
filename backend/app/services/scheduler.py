@@ -69,9 +69,10 @@ async def check_unfilled_steps():
                 notification = Notification(
                     user_id=obj.created_by_id,
                     type=NotificationType.REMINDER,
-                    title="Step reminder",
-                    message=f"Object '{obj.name}': step {next_step} of {total_steps} awaiting — "
-                    f"last activity {settings.reminder_delay_days}+ days ago",
+                    title="Напоминание о незаполненном шаге",
+                    message=f"Объект '{obj.name}': шаг {next_step} из {total_steps} ожидает заполнения",
+                    object_id=obj.id,
+                    step_number=next_step,
                 )
                 db.add(notification)
                 logger.info("Reminder sent: object %d step %d for user %d", obj.id, next_step, obj.created_by_id)

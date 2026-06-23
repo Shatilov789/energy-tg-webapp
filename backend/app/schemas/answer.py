@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from backend.app.schemas.comment import CommentResponse
+
 
 class AnswerCreate(BaseModel):
     answer_text: str
@@ -17,5 +19,6 @@ class AnswerResponse(BaseModel):
     answered_by_id: int
     is_locked: bool
     answered_at: datetime
+    comments: list[CommentResponse] = []
 
     model_config = {"from_attributes": True}

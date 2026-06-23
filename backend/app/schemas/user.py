@@ -26,3 +26,15 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UserBriefResponse(BaseModel):
+    """Minimal user info — colleague picker, comment author/recipient."""
+
+    id: int
+    first_name: str
+    last_name: str | None
+    username: str | None
+    role: UserRole
+
+    model_config = {"from_attributes": True}

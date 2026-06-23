@@ -12,12 +12,15 @@ from backend.app.db.session import get_db
 from backend.app.models.answer import ObjectAnswer
 from backend.app.models.audit import AuditAction
 from backend.app.models.comment import AdminComment
+from backend.app.models.scenario import ScenarioStep
 from backend.app.models.notification import Notification, NotificationType
 from backend.app.models.object import Object
+from backend.app.models.scenario import Scenario
 from backend.app.models.user import User, UserRole
 from backend.app.services.audit import log_action
 from backend.app.schemas.comment import CommentCreate, CommentResponse
 from backend.app.schemas.error import RESPONSES_AUTH, RESPONSES_CRUD, RESPONSES_CRUD_CONFLICT
+from backend.app.schemas.object import AdminObjectResponse
 from backend.app.schemas.user import UserCreate, UserResponse
 
 logger = logging.getLogger(__name__)
@@ -92,16 +95,19 @@ async def toggle_user_active(
 # --- Object oversight ---
 
 
-@router.get("/objects", response_model=list, responses=RESPONSES_AUTH)
+@router.get("/objects", response_model=list[AdminObjectResponse], responses=RESPONSES_AUTH)
 async def list_all_objects(
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """List all objects across all workers."""
     result = await db.execute(
-        select(Object).options(selectinload(Object.scenario), selectinload(Object.creator)).order_by(
-            Object.updated_at.desc()
+        select(Object)
+        .options(
+            selectinload(Object.scenario).selectinload(Scenario.steps),
+            selectinload(Object.answers).selectinload(ObjectAnswer.comments),
         )
+        .order_by(Object.updated_at.desc())
     )
     return result.scalars().all()
 
@@ -118,7 +124,9 @@ async def add_comment(
 ):
     """Add admin comment to an answer — sends notification to worker."""
     result = await db.execute(
-        select(ObjectAnswer).where(ObjectAnswer.id == answer_id).options(selectinload(ObjectAnswer.object))
+        select(ObjectAnswer)
+        .where(ObjectAnswer.id == answer_id)
+        .options(selectinload(ObjectAnswer.object), selectinload(ObjectAnswer.step))
     )
     answer = result.scalar_one_or_none()
     if not answer:
@@ -130,8 +138,10 @@ async def add_comment(
     notification = Notification(
         user_id=answer.answered_by_id,
         type=NotificationType.ADMIN_COMMENT,
-        title="New comment from admin",
-        message=f"Admin commented on step in '{answer.object.name}'",
+        title="Комментарий администратора",
+        message=f"Администратор оставил комментарий к шагу {answer.step.step_number} в '{answer.object.name}'",
+        object_id=answer.object_id,
+        step_number=answer.step.step_number,
     )
     db.add(notification)
     await db.flush()
@@ -153,7 +163,11 @@ async def unlock_answer(
     db: AsyncSession = Depends(get_db),
 ):
     """Unlock answer so worker can edit it."""
-    result = await db.execute(select(ObjectAnswer).where(ObjectAnswer.id == answer_id))
+    result = await db.execute(
+        select(ObjectAnswer)
+        .where(ObjectAnswer.id == answer_id)
+        .options(selectinload(ObjectAnswer.object), selectinload(ObjectAnswer.step))
+    )
     answer = result.scalar_one_or_none()
     if not answer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Answer not found")
@@ -164,8 +178,10 @@ async def unlock_answer(
     notification = Notification(
         user_id=answer.answered_by_id,
         type=NotificationType.STEP_UNLOCKED,
-        title="Step unlocked",
-        message=f"Admin unlocked a step for editing",
+        title="Шаг разблокирован",
+        message=f"Администратор разблокировал шаг {answer.step.step_number} в '{answer.object.name}' для редактирования",
+        object_id=answer.object_id,
+        step_number=answer.step.step_number,
     )
     db.add(notification)
     await db.flush()
