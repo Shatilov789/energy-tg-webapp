@@ -135,7 +135,8 @@ async def _get_object_with_access(object_id: int, user: User, db: AsyncSession) 
         .options(
             selectinload(Object.scenario).selectinload(Scenario.steps),
             selectinload(Object.answers).selectinload(ObjectAnswer.comments),
-            selectinload(Object.workers),
+            selectinload(Object.answers).selectinload(ObjectAnswer.answered_by_user),
+            selectinload(Object.workers).selectinload(ObjectWorker.user),
         )
     )
     obj = result.scalar_one_or_none()

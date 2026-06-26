@@ -5,6 +5,7 @@ import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
 import { formatDate, daysSinceLabel } from '../utils/date';
 import {
   IconPlus,
+  IconBolt,
   IconBell,
   IconList,
   IconLayoutDashboard,
@@ -70,7 +71,7 @@ export default function HomePage() {
           </div>
         </div>
         <button className="fab-create" onClick={() => navigate('/objects')}>
-          <IconPlus size={22} strokeWidth={2.5} />
+          <IconBolt size={22} strokeWidth={2.5} />
         </button>
       </div>
 
@@ -111,7 +112,7 @@ export default function HomePage() {
           <div className="tab-indicator" />
         </button>
         <button className="tab" onClick={() => navigate('/objects')}>
-          <IconPlus size={22} />
+          <IconBolt size={22} />
           <span>Создать</span>
         </button>
         <button className="tab" onClick={() => navigate('/notifications')} style={{ position: 'relative' }}>

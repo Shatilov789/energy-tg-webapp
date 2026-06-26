@@ -11,10 +11,10 @@ from backend.app.core.security import require_admin
 from backend.app.db.session import get_db
 from backend.app.models.answer import ObjectAnswer
 from backend.app.models.audit import AuditAction
-from backend.app.models.comment import AdminComment
+from backend.app.models.comment import AdminComment, StepComment
 from backend.app.models.scenario import ScenarioStep
 from backend.app.models.notification import Notification, NotificationType
-from backend.app.models.object import Object
+from backend.app.models.object import Object, ObjectWorker
 from backend.app.models.scenario import Scenario
 from backend.app.models.user import User, UserRole
 from backend.app.services.audit import log_action
@@ -106,10 +106,72 @@ async def list_all_objects(
         .options(
             selectinload(Object.scenario).selectinload(Scenario.steps),
             selectinload(Object.answers).selectinload(ObjectAnswer.comments),
+            selectinload(Object.answers).selectinload(ObjectAnswer.answered_by_user),
+            selectinload(Object.workers).selectinload(ObjectWorker.user),
         )
         .order_by(Object.updated_at.desc())
     )
     return result.scalars().all()
+
+
+# --- Responsible workers (ответственные за объект) ---
+
+
+@router.post("/objects/{object_id}/workers/{user_id}", status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD_CONFLICT)
+async def add_worker(
+    object_id: int,
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Добавить ответственного за объект."""
+    obj = await db.get(Object, object_id)
+    if not obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
+
+    target_user = await db.get(User, user_id)
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    existing = await db.execute(
+        select(ObjectWorker).where(ObjectWorker.object_id == object_id, ObjectWorker.user_id == user_id)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already responsible")
+
+    db.add(ObjectWorker(object_id=object_id, user_id=user_id))
+    await db.flush()
+    await log_action(
+        db, user_id=admin.id, action=AuditAction.SHARE,
+        entity_type="object", entity_id=object_id,
+        details={"added_worker": user_id},
+    )
+    return {"detail": "Worker added"}
+
+
+@router.delete("/objects/{object_id}/workers/{user_id}", responses=RESPONSES_CRUD)
+async def remove_worker(
+    object_id: int,
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Убрать ответственного с объекта."""
+    result = await db.execute(
+        select(ObjectWorker).where(ObjectWorker.object_id == object_id, ObjectWorker.user_id == user_id)
+    )
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found on object")
+
+    await db.delete(link)
+    await db.flush()
+    await log_action(
+        db, user_id=admin.id, action=AuditAction.UPDATE,
+        entity_type="object", entity_id=object_id,
+        details={"removed_worker": user_id},
+    )
+    return {"detail": "Worker removed"}
 
 
 # --- Comments ---
@@ -135,6 +197,16 @@ async def add_comment(
     comment = AdminComment(answer_id=answer_id, admin_id=admin.id, comment_text=data.comment_text)
     db.add(comment)
 
+    # Системное событие в тред-обсуждении шага
+    db.add(StepComment(
+        object_id=answer.object_id,
+        step_id=answer.step_id,
+        author_id=admin.id,
+        is_system_event=True,
+        event_type="admin_comment",
+        comment_text="Администратор оставил комментарий",
+    ))
+
     notification = Notification(
         user_id=answer.answered_by_id,
         type=NotificationType.ADMIN_COMMENT,
@@ -156,6 +228,53 @@ async def add_comment(
 # --- Unlock answers ---
 
 
+@router.patch("/answers/{answer_id}/lock", responses=RESPONSES_CRUD)
+async def lock_answer(
+    answer_id: int,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lock answer so worker cannot edit it until unlocked."""
+    result = await db.execute(
+        select(ObjectAnswer)
+        .where(ObjectAnswer.id == answer_id)
+        .options(selectinload(ObjectAnswer.object), selectinload(ObjectAnswer.step))
+    )
+    answer = result.scalar_one_or_none()
+    if not answer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Answer not found")
+
+    answer.is_locked = True
+    await db.flush()
+
+    db.add(StepComment(
+        object_id=answer.object_id,
+        step_id=answer.step_id,
+        author_id=None,
+        is_system_event=True,
+        event_type="lock",
+        comment_text="Администратор заблокировал ответ",
+    ))
+
+    notification = Notification(
+        user_id=answer.answered_by_id,
+        type=NotificationType.STEP_UNLOCKED,
+        title="Шаг заблокирован",
+        message=f"Администратор заблокировал шаг {answer.step.step_number} в '{answer.object.name}'",
+        object_id=answer.object_id,
+        step_number=answer.step.step_number,
+    )
+    db.add(notification)
+    await db.flush()
+
+    await log_action(
+        db, user_id=admin.id, action=AuditAction.UPDATE,
+        entity_type="answer", entity_id=answer_id,
+        details={"locked": True},
+    )
+    return {"detail": "Answer locked"}
+
+
 @router.patch("/answers/{answer_id}/unlock", responses=RESPONSES_CRUD)
 async def unlock_answer(
     answer_id: int,
@@ -174,6 +293,16 @@ async def unlock_answer(
 
     answer.is_locked = False
     await db.flush()
+
+    # Системное событие в тред-обсуждении шага
+    db.add(StepComment(
+        object_id=answer.object_id,
+        step_id=answer.step_id,
+        author_id=None,
+        is_system_event=True,
+        event_type="unlock",
+        comment_text="Администратор разблокировал ответ",
+    ))
 
     notification = Notification(
         user_id=answer.answered_by_id,

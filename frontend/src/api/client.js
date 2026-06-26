@@ -53,6 +53,11 @@ export const api = {
   updateAnswer: (objectId, stepId, data) =>
     request(`/objects/${objectId}/steps/${stepId}/answer`, { method: 'PUT', body: JSON.stringify(data) }),
 
+  // Step status notes (комментарий к этапу — лог статусов)
+  getStatusNotes: (objectId, stepId) => request(`/objects/${objectId}/steps/${stepId}/status-notes`),
+  addStatusNote: (objectId, stepId, data) =>
+    request(`/objects/${objectId}/steps/${stepId}/status-notes`, { method: 'POST', body: JSON.stringify(data) }),
+
   // Step discussion
   getStepComments: (objectId, stepId) => request(`/objects/${objectId}/steps/${stepId}/comments`),
   addStepComment: (objectId, stepId, data) =>
@@ -70,8 +75,18 @@ export const api = {
   // Admin
   getAdminObjects: () => request('/admin/objects'),
   getAdminUsers: () => request('/admin/users'),
+  addWorker: (objectId, userId) =>
+    request(`/admin/objects/${objectId}/workers/${userId}`, { method: 'POST' }),
+  removeWorker: (objectId, userId) =>
+    request(`/admin/objects/${objectId}/workers/${userId}`, { method: 'DELETE' }),
   addComment: (answerId, data) =>
     request(`/admin/answers/${answerId}/comment`, { method: 'POST', body: JSON.stringify(data) }),
+  lockAnswer: (answerId) =>
+    request(`/admin/answers/${answerId}/lock`, { method: 'PATCH' }),
   unlockAnswer: (answerId) =>
     request(`/admin/answers/${answerId}/unlock`, { method: 'PATCH' }),
+  createUser: (data) =>
+    request('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
+  toggleUserActive: (userId) =>
+    request(`/admin/users/${userId}/toggle-active`, { method: 'PATCH' }),
 };

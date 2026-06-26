@@ -212,7 +212,7 @@ export default function ObjectsPage() {
           disabled={creating || !canSubmit}
           style={{
             background: canSubmit ? 'var(--acc)' : 'var(--s3)',
-            color: canSubmit ? '#0F1117' : 'var(--mu)',
+            color: canSubmit ? '#17171A' : 'var(--mu)',
             cursor: canSubmit ? 'pointer' : 'not-allowed',
             marginBottom: 32,
           }}
