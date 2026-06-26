@@ -123,6 +123,7 @@ async def update_criticality(
         entity_type="object", entity_id=object_id, object_id=object_id,
         details={"from": old_val.value, "to": data.criticality.value},
     )
+    await db.refresh(obj)
     return obj
 
 
