@@ -745,6 +745,9 @@ textarea, input, button, select {
   flex-direction: column;
   gap: 10px;
   margin-bottom: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .discuss-msg {
@@ -921,11 +924,24 @@ textarea, input, button, select {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  cursor: pointer;
+  transition: background .15s;
 }
+.discuss-quoted:hover { background: rgba(59,139,235,.14); }
 .discuss-quoted-author {
   font-weight: 600;
   color: var(--acc2);
   margin-right: 4px;
+}
+
+/* Flash-подсветка при скролле к оригиналу */
+@keyframes discuss-flash {
+  0%   { background: rgba(167,139,250,.25); }
+  100% { background: transparent; }
+}
+.discuss-msg--highlight {
+  animation: discuss-flash 1.5s ease-out forwards;
+  border-radius: 8px;
 }
 
 /* --- Step navigation --- */

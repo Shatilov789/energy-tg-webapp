@@ -31,6 +31,7 @@ function autoGrow(e) {
   e.target.style.height = e.target.scrollHeight + 'px';
 }
 
+
 export default function StepPage() {
   const navigate = useNavigate();
   const { objectId, stepNumber } = useParams();
@@ -50,9 +51,19 @@ export default function StepPage() {
   const [commentText, setCommentText] = useState('');
   const [postingComment, setPostingComment] = useState(false);
   const [replyTo, setReplyTo] = useState(null); // { id, author, comment_text }
+  const [highlightedId, setHighlightedId] = useState(null);
   const showLoadingText = useDelayedLoadingText(loading);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
+  const discussListRef = useRef(null);
+
+  const scrollToComment = (id) => {
+    const el = document.getElementById(`comment-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedId(id);
+    setTimeout(() => setHighlightedId(null), 1500);
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -89,7 +100,18 @@ export default function StepPage() {
     setNoteText('');
     setReplyTo(null);
     api.getStatusNotes(objectId, currentStepId).then(setStatusNotes).catch(() => setStatusNotes([]));
-    api.getStepComments(objectId, currentStepId).then(setComments).catch(() => setComments([]));
+    api.getStepComments(objectId, currentStepId).then(data => {
+      setComments(data);
+      if (data.length > 0) {
+        setDiscussOpen(true);
+        // скроллим к последнему сообщению после рендера
+        setTimeout(() => {
+          if (discussListRef.current) {
+            discussListRef.current.scrollTop = discussListRef.current.scrollHeight;
+          }
+        }, 100);
+      }
+    }).catch(() => setComments([]));
   }, [objectId, currentStepId]);
 
   if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
@@ -143,9 +165,12 @@ export default function StepPage() {
         comment_text: value,
         reply_to_id: replyTo?.id ?? null,
       });
-      setComments(prev => [...prev, created]);
+      const updated = await api.getStepComments(objectId, currentStepId);
+      setComments(updated);
       setCommentText('');
       setReplyTo(null);
+      // скроллим к новому сообщению (оно стоит после родителя, не в конце)
+      setTimeout(() => scrollToComment(created.id), 100);
     } catch (err) {
       alert(err.message);
     } finally {
@@ -319,7 +344,7 @@ export default function StepPage() {
           {discussOpen && (
             <>
               {comments.length > 0 && (
-                <div className="discuss-list">
+                <div className="discuss-list" ref={discussListRef}>
                   {comments.map(c => {
                     if (c.is_system_event) {
                       return (
@@ -333,7 +358,11 @@ export default function StepPage() {
                       );
                     }
                     return (
-                      <div className="discuss-msg" key={c.id}>
+                      <div
+                        className={`discuss-msg${highlightedId === c.id ? ' discuss-msg--highlight' : ''}`}
+                        key={c.id}
+                        id={`comment-${c.id}`}
+                      >
                         <div className="discuss-avatar">
                           {getInitials(c.author?.first_name, c.author?.last_name)}
                         </div>
@@ -357,7 +386,11 @@ export default function StepPage() {
                             </button>
                           </div>
                           {c.reply_to && (
-                            <div className="discuss-quoted">
+                            <div
+                              className="discuss-quoted"
+                              onClick={() => scrollToComment(c.reply_to.id)}
+                              title="Перейти к сообщению"
+                            >
                               <span className="discuss-quoted-author">
                                 {c.reply_to.is_system_event
                                   ? 'Система'

@@ -52,10 +52,12 @@ class StepComment(Base):
     object: Mapped["Object"] = relationship(back_populates="step_comments")
     author: Mapped["User | None"] = relationship(foreign_keys=[author_id])
     recipient: Mapped["User | None"] = relationship(foreign_keys=[recipient_id])
-    # Self-referential: message this one replies to (one level only)
+    # Self-referential many-to-one: грузим РОДИТЕЛЯ (WHERE id = self.reply_to_id)
+    # remote_side=[id] указывает что id — удалённая (родительская) сторона
     reply_to: Mapped["StepComment | None"] = relationship(
         "StepComment",
         foreign_keys=[reply_to_id],
+        remote_side=[id],
         uselist=False,
     )
 
