@@ -5,7 +5,6 @@ import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
 import {
   IconAlertCircle,
   IconAlertTriangle,
-  IconLockOpen,
   IconMessage,
   IconShare,
   IconBell,
@@ -26,15 +25,6 @@ const TYPE_CONFIG = {
     actionColor: 'var(--err)',
     unreadCls: 'ni-unread-error',
     dotColor: 'var(--err)',
-  },
-  step_unlocked: {
-    icon: IconLockOpen,
-    bgColor: 'rgba(149,82,204,.12)',
-    color: 'var(--purple)',
-    actionLabel: 'Редактировать',
-    actionColor: 'var(--purple)',
-    unreadCls: 'ni-unread-purple',
-    dotColor: 'var(--purple)',
   },
   admin_comment: {
     icon: IconMessage,

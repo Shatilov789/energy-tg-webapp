@@ -8,8 +8,6 @@ import {
   IconChevronLeft,
   IconChevronDown,
   IconSend,
-  IconLock,
-  IconLockOpen,
   IconDeviceFloppy,
   IconMessageCircle,
   IconAt,
@@ -108,11 +106,10 @@ export default function StepPage() {
   // Ответственный = в списке workers объекта ИЛИ admin
   const isAdmin = user?.role === 'admin';
   const isResponsible = isAdmin || (object?.workers || []).some(w => w.user_id === user?.id);
-  const locked = !!savedAnswers[step.id]?.is_locked;
   const savedRecord = savedAnswers[step.id];
   const adminComments = savedRecord?.comments || [];
   // Администратор листает шаги без ограничений; сотруднику нужно добавить хотя бы одну запись
-  const canAdvance = !isResponsible || locked || statusNotes.length > 0;
+  const canAdvance = !isResponsible || statusNotes.length > 0;
 
   async function postStatusNote() {
     const value = noteText.trim();
@@ -157,12 +154,8 @@ export default function StepPage() {
   }
 
   function getSystemEventIcon(eventType) {
-    switch (eventType) {
-      case 'lock': return <IconLock size={13} />;
-      case 'unlock': return <IconLockOpen size={13} />;
-      case 'admin_comment': return <IconMessage2 size={13} />;
-      default: return <IconSpeakerphone size={13} />;
-    }
+    if (eventType === 'admin_comment') return <IconMessage2 size={13} />;
+    return <IconSpeakerphone size={13} />;
   }
 
   function goTo(index) {
@@ -266,7 +259,7 @@ export default function StepPage() {
                   <div className="snotes-empty">Нет записей статуса</div>
                 )}
 
-                {isResponsible && !locked && (
+                {isResponsible && (
                   <div className="discuss-inputwrap" style={{ marginTop: 6 }}>
                     <textarea
                       className="discuss-textarea"
@@ -287,12 +280,6 @@ export default function StepPage() {
                   </div>
                 )}
 
-                {locked && (
-                  <div className="lock-tag">
-                    <IconLock size={14} />
-                    Заблокировано — только администратор может разблокировать
-                  </div>
-                )}
               </>
             )}
           </div>

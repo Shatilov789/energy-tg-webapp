@@ -81,10 +81,6 @@ export const api = {
     request(`/admin/objects/${objectId}/workers/${userId}`, { method: 'DELETE' }),
   addComment: (answerId, data) =>
     request(`/admin/answers/${answerId}/comment`, { method: 'POST', body: JSON.stringify(data) }),
-  lockAnswer: (answerId) =>
-    request(`/admin/answers/${answerId}/lock`, { method: 'PATCH' }),
-  unlockAnswer: (answerId) =>
-    request(`/admin/answers/${answerId}/unlock`, { method: 'PATCH' }),
   createUser: (data) =>
     request('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
   toggleUserActive: (userId) =>

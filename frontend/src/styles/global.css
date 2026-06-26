@@ -6,11 +6,11 @@
   --s2: #1B1B1F;
   --s3: #303036;
   --br: #28282C;
-  --acc: #E8A838;
+  --acc: #A78BFA;
   --acc2: #4C84E8;
   --ok: #3DBE7A;
   --err: #E5484D;
-  --warn: #E8A838;
+  --warn: #E8A838; /* оставлен жёлтым — цвет предупреждений, не используется в UI */
   --purple: #8B7CF0;
   --tx: #ECECEC;
   --mu: #9A9A96;
@@ -163,7 +163,7 @@ textarea, input, button, select {
 }
 
 .bdg-ok { background: rgba(46,204,113,.12); color: var(--ok); }
-.bdg-pend { background: rgba(232,168,56,.12); color: var(--acc); }
+.bdg-pend { background: rgba(167,139,250,.12); color: var(--acc); }
 .bdg-err { background: rgba(231,76,60,.12); color: var(--err); }
 .bdg-info { background: rgba(59,139,235,.12); color: var(--acc2); }
 
@@ -292,8 +292,8 @@ textarea, input, button, select {
   transition: all .15s;
 }
 
-.scen-card:hover { border-color: rgba(232,168,56,.25); background: var(--s2); }
-.scen-card.sel { border-color: var(--acc); background: rgba(232,168,56,.06); }
+.scen-card:hover { border-color: rgba(167,139,250,.25); background: var(--s2); }
+.scen-card.sel { border-color: var(--acc); background: rgba(167,139,250,.06); }
 
 .scen-top {
   display: flex;
@@ -313,7 +313,7 @@ textarea, input, button, select {
   border-radius: 20px;
 }
 
-.step-chip-a { background: rgba(232,168,56,.12); color: var(--acc); }
+.step-chip-a { background: rgba(167,139,250,.12); color: var(--acc); }
 .step-chip-b { background: rgba(59,139,235,.12); color: var(--acc2); }
 .step-chip-r { background: rgba(231,76,60,.12); color: var(--err); }
 .step-chip-g { background: rgba(46,204,113,.12); color: var(--ok); }
@@ -386,7 +386,7 @@ textarea, input, button, select {
   transition: border-color .15s;
 }
 
-.scen-select-trigger:hover { border-color: rgba(232,168,56,.25); }
+.scen-select-trigger:hover { border-color: rgba(167,139,250,.25); }
 
 .scen-select-current {
   display: flex;
@@ -427,7 +427,7 @@ textarea, input, button, select {
 }
 
 .scen-select-option:hover { background: var(--s2); }
-.scen-select-option.sel { background: rgba(232,168,56,.08); color: var(--acc); }
+.scen-select-option.sel { background: rgba(167,139,250,.08); color: var(--acc); }
 
 /* --- Question step page: minimal header (Telegram-style card) --- */
 
@@ -530,7 +530,7 @@ textarea, input, button, select {
 }
 
 .qa-btn:hover { border-color: var(--acc); color: var(--tx); }
-.qa-btn.sel { border-color: var(--acc); background: rgba(232,168,56,.10); color: var(--acc); }
+.qa-btn.sel { border-color: var(--acc); background: rgba(167,139,250,.10); color: var(--acc); }
 
 .qtextarea {
   width: 100%;
@@ -564,7 +564,7 @@ textarea, input, button, select {
 /* Поле дополнения: цвет границы — amber */
 .qtextarea.qtextarea-supplement {
   min-height: unset;
-  border-color: rgba(232,168,56,.35);
+  border-color: rgba(167,139,250,.35);
   margin-top: 6px;
 }
 .qtextarea.qtextarea-supplement:focus { border-color: var(--acc); }
@@ -1046,7 +1046,7 @@ textarea, input, button, select {
 }
 
 .ni-unread-error { border-color: rgba(231,76,60,.25); background: rgba(231,76,60,.04); }
-.ni-unread-warning { border-color: rgba(243,156,18,.25); background: rgba(243,156,18,.04); }
+.ni-unread-warning { border-color: rgba(167,139,250,.25); background: rgba(167,139,250,.04); }
 .ni-unread-success { border-color: rgba(46,204,113,.25); background: rgba(46,204,113,.04); }
 .ni-unread-purple { border-color: rgba(149,82,204,.25); background: rgba(149,82,204,.04); }
 .ni-unread-info { border-color: rgba(59,139,235,.25); background: rgba(59,139,235,.04); }
@@ -1327,7 +1327,7 @@ textarea, input, button, select {
   transition: all .15s;
 }
 
-.role-btn.on { border-color: var(--acc); background: rgba(232,168,56,.12); color: var(--acc); font-weight: 600; }
+.role-btn.on { border-color: var(--acc); background: rgba(167,139,250,.12); color: var(--acc); font-weight: 600; }
 
 /* --- Admin Object Cards --- */
 
@@ -1452,8 +1452,8 @@ textarea, input, button, select {
   gap: 4px;
   padding: 2px 8px;
   border-radius: 20px;
-  background: rgba(232,168,56,.10);
-  border: 1px solid rgba(232,168,56,.25);
+  background: rgba(167,139,250,.10);
+  border: 1px solid rgba(167,139,250,.25);
   color: var(--acc);
   font-size: 11px;
   font-weight: 500;
@@ -1597,7 +1597,7 @@ textarea, input, button, select {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(232,168,56,.32);
+  box-shadow: 0 8px 20px rgba(167,139,250,.32);
   flex-shrink: 0;
 }
 

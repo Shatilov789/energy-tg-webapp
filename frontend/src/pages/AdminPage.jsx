@@ -77,24 +77,6 @@ export default function AdminPage() {
     }
   }
 
-  async function handleLock(answerId) {
-    try {
-      await api.lockAnswer(answerId);
-      await loadData();
-    } catch (err) {
-      alert(err.message);
-    }
-  }
-
-  async function handleUnlock(answerId) {
-    try {
-      await api.unlockAnswer(answerId);
-      await loadData();
-    } catch (err) {
-      alert(err.message);
-    }
-  }
-
   async function handleAddWorker() {
     if (!workerModal || !selectedUserId) return;
     try {
@@ -353,7 +335,7 @@ export default function AdminPage() {
               {answeredItems.map(({ answer, step }) => (
                 <div className="adm-detail" key={answer.id}>
                   <div style={{ fontSize: 11, color: 'var(--mu)', marginBottom: 6 }}>
-                    Вопрос №{step.step_number}{answer.is_locked ? ' — заблокирован' : ''}:
+                    Вопрос №{step.step_number}:
                   </div>
                   <div className="adm-answer-box">
                     «{step.question_text}»
@@ -363,15 +345,6 @@ export default function AdminPage() {
                     </span>
                   </div>
                   <div className="adm-actions">
-                    {answer.is_locked ? (
-                      <button className="unlock-btn" onClick={() => handleUnlock(answer.id)}>
-                        <IconLockOpen size={13} /> Разблокировать
-                      </button>
-                    ) : (
-                      <button className="unlock-btn" onClick={() => handleLock(answer.id)}>
-                        <IconLock size={13} /> Заблокировать
-                      </button>
-                    )}
                     <button className="comment-btn" onClick={() => setCommentModal({ answerId: answer.id, stepText: step.question_text })}>
                       <IconMessagePlus size={13} /> Комментарий
                     </button>
