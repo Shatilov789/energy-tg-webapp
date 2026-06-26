@@ -1615,3 +1615,70 @@ textarea, input, button, select {
 
 .slide-right { animation: slideInRight .22s ease; }
 .slide-left { animation: slideInLeft .22s ease; }
+
+/* === Criticality === */
+
+.crit-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
+  padding: 2px 7px; border-radius: 8px;
+  cursor: pointer; white-space: nowrap; text-transform: uppercase;
+  user-select: none; flex-shrink: 0;
+}
+.crit-badge.crit-normal { background: rgba(154,154,150,.12); color: var(--mu); }
+.crit-badge.crit-high   { background: rgba(232,168,56,.18); color: #E8A838; }
+.crit-badge.crit-critical { background: rgba(229,72,77,.18); color: var(--err); }
+
+.crit-option {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 12px 16px; margin-bottom: 8px;
+  background: var(--s2); border: 1px solid var(--br);
+  border-radius: var(--rs); color: var(--tx);
+  font-size: 14px; font-weight: 500; cursor: pointer; text-align: left;
+}
+.crit-option:last-child { margin-bottom: 0; }
+.crit-option.sel { border-color: var(--acc); background: rgba(167,139,250,.08); color: var(--acc); }
+.crit-option-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.crit-option-dot.normal   { background: var(--mu2); }
+.crit-option-dot.high     { background: #E8A838; }
+.crit-option-dot.critical { background: var(--err); }
+
+.obj-log-link {
+  color: var(--acc); cursor: pointer;
+}
+
+/* === Object Log Page === */
+
+.log-entry {
+  display: flex; gap: 12px; padding: 12px 0;
+  border-bottom: 1px solid var(--br);
+}
+.log-entry:last-child { border-bottom: none; }
+
+.log-icon {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 2px;
+}
+.log-icon.action-create           { background: rgba(61,190,122,.15);  color: var(--ok); }
+.log-icon.action-update           { background: rgba(76,132,232,.15);  color: var(--acc2); }
+.log-icon.action-criticality_change { background: rgba(229,72,77,.15); color: var(--err); }
+.log-icon.action-share            { background: rgba(167,139,250,.15); color: var(--acc); }
+.log-icon.action-comment          { background: rgba(76,132,232,.15);  color: var(--acc2); }
+.log-icon.action-unlock           { background: rgba(232,168,56,.15);  color: #E8A838; }
+.log-icon.action-status_change    { background: rgba(232,168,56,.15);  color: #E8A838; }
+.log-icon.action-delete           { background: rgba(229,72,77,.15);   color: var(--err); }
+.log-icon.action-login            { background: rgba(154,154,150,.12); color: var(--mu); }
+
+.log-body    { flex: 1; min-width: 0; }
+.log-action  { font-size: 13px; font-weight: 500; color: var(--tx); }
+.log-who     { font-size: 12px; color: var(--mu); margin-top: 1px; }
+.log-details { font-size: 12px; color: var(--mu); margin-top: 3px; font-style: italic; }
+.log-time    { font-size: 11px; color: var(--mu2); margin-top: 3px; font-family: var(--font-mono); }
+
+.log-date-sep {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
+  color: var(--mu); text-transform: uppercase;
+  padding: 16px 0 8px; font-family: var(--font-mono);
+}

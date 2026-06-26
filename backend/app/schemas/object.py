@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from backend.app.models.object import ObjectStatus
+from backend.app.models.object import ObjectCriticality, ObjectStatus
 from backend.app.schemas.answer import AnswerResponse
 from backend.app.schemas.scenario import ScenarioResponse, ScenarioWithStepsResponse
 from backend.app.schemas.user import UserBriefResponse
@@ -14,6 +14,10 @@ class ObjectCreate(BaseModel):
     name: str
     comment: str | None = None
     scenario_id: int
+
+
+class ObjectUpdateCriticality(BaseModel):
+    criticality: ObjectCriticality
 
 
 class WorkerResponse(BaseModel):
@@ -34,6 +38,7 @@ class ObjectResponse(BaseModel):
     scenario_id: int
     created_by_id: int
     status: ObjectStatus
+    criticality: ObjectCriticality
     created_at: datetime
     updated_at: datetime
 

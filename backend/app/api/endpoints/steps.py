@@ -55,8 +55,8 @@ async def submit_answer(
 
     await log_action(
         db, user_id=current_user.id, action=AuditAction.CREATE,
-        entity_type="answer", entity_id=answer.id,
-        details={"object_id": object_id, "step_id": step_id},
+        entity_type="answer", entity_id=answer.id, object_id=object_id,
+        details={"step_id": step_id},
     )
     return await _load_answer(db, answer.id)
 
@@ -88,8 +88,8 @@ async def update_answer(
 
     await log_action(
         db, user_id=current_user.id, action=AuditAction.UPDATE,
-        entity_type="answer", entity_id=answer.id,
-        details={"object_id": object_id, "step_id": step_id, "old_locked": False},
+        entity_type="answer", entity_id=answer.id, object_id=object_id,
+        details={"step_id": step_id},
     )
     return await _load_answer(db, answer.id)
 
@@ -151,8 +151,8 @@ async def add_step_comment(
 
     await log_action(
         db, user_id=current_user.id, action=AuditAction.COMMENT,
-        entity_type="step_comment", entity_id=comment.id,
-        details={"object_id": object_id, "step_id": step_id, "recipient_id": data.recipient_id},
+        entity_type="step_comment", entity_id=comment.id, object_id=object_id,
+        details={"step_id": step_id, "recipient_id": data.recipient_id},
     )
 
     result = await db.execute(
@@ -240,8 +240,8 @@ async def add_status_note(
 
     await log_action(
         db, user_id=current_user.id, action=AuditAction.CREATE,
-        entity_type="step_status_note", entity_id=note.id,
-        details={"object_id": object_id, "step_id": step_id},
+        entity_type="step_status_note", entity_id=note.id, object_id=object_id,
+        details={"step_id": step_id},
     )
 
     result = await db.execute(

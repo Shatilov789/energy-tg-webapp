@@ -15,6 +15,12 @@ class ObjectStatus(str, enum.Enum):
     COMPLETED = "completed"
 
 
+class ObjectCriticality(str, enum.Enum):
+    NORMAL = "normal"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
 class Object(SoftDeleteMixin, Base):
     __tablename__ = "objects"
 
@@ -24,6 +30,9 @@ class Object(SoftDeleteMixin, Base):
     scenario_id: Mapped[int] = mapped_column(ForeignKey("scenarios.id"), index=True)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     status: Mapped[ObjectStatus] = mapped_column(Enum(ObjectStatus), default=ObjectStatus.IN_PROGRESS)
+    criticality: Mapped[ObjectCriticality] = mapped_column(
+        Enum(ObjectCriticality), default=ObjectCriticality.NORMAL
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

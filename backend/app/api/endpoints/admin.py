@@ -14,7 +14,7 @@ from backend.app.models.audit import AuditAction
 from backend.app.models.comment import AdminComment, StepComment
 from backend.app.models.scenario import ScenarioStep
 from backend.app.models.notification import Notification, NotificationType
-from backend.app.models.object import Object, ObjectWorker
+from backend.app.models.object import Object, ObjectCriticality, ObjectWorker
 from backend.app.models.scenario import Scenario
 from backend.app.models.user import User, UserRole
 from backend.app.services.audit import log_action
@@ -111,7 +111,11 @@ async def list_all_objects(
         )
         .order_by(Object.updated_at.desc())
     )
-    return result.scalars().all()
+    _crit_rank = {ObjectCriticality.CRITICAL: 0, ObjectCriticality.HIGH: 1, ObjectCriticality.NORMAL: 2}
+    return sorted(
+        result.scalars().all(),
+        key=lambda o: (_crit_rank.get(o.criticality, 2), -o.updated_at.timestamp()),
+    )
 
 
 # --- Responsible workers (ответственные за объект) ---
@@ -143,7 +147,7 @@ async def add_worker(
     await db.flush()
     await log_action(
         db, user_id=admin.id, action=AuditAction.SHARE,
-        entity_type="object", entity_id=object_id,
+        entity_type="object", entity_id=object_id, object_id=object_id,
         details={"added_worker": user_id},
     )
     return {"detail": "Worker added"}
@@ -168,7 +172,7 @@ async def remove_worker(
     await db.flush()
     await log_action(
         db, user_id=admin.id, action=AuditAction.UPDATE,
-        entity_type="object", entity_id=object_id,
+        entity_type="object", entity_id=object_id, object_id=object_id,
         details={"removed_worker": user_id},
     )
     return {"detail": "Worker removed"}
@@ -220,7 +224,7 @@ async def add_comment(
 
     await log_action(
         db, user_id=admin.id, action=AuditAction.COMMENT,
-        entity_type="answer", entity_id=answer_id,
+        entity_type="answer", entity_id=answer_id, object_id=answer.object_id,
     )
     return comment
 
@@ -269,7 +273,7 @@ async def lock_answer(
 
     await log_action(
         db, user_id=admin.id, action=AuditAction.UPDATE,
-        entity_type="answer", entity_id=answer_id,
+        entity_type="answer", entity_id=answer_id, object_id=answer.object_id,
         details={"locked": True},
     )
     return {"detail": "Answer locked"}
@@ -317,6 +321,6 @@ async def unlock_answer(
 
     await log_action(
         db, user_id=admin.id, action=AuditAction.UNLOCK,
-        entity_type="answer", entity_id=answer_id,
+        entity_type="answer", entity_id=answer_id, object_id=answer.object_id,
     )
     return {"detail": "Answer unlocked"}

@@ -10,13 +10,14 @@ from sqlalchemy.orm import selectinload
 from backend.app.core.security import get_current_user
 from backend.app.db.session import get_db
 from backend.app.models.answer import ObjectAnswer
-from backend.app.models.audit import AuditAction
-from backend.app.models.object import Object, ObjectStatus, ObjectWorker
+from backend.app.models.audit import AuditAction, AuditLog
+from backend.app.models.object import Object, ObjectCriticality, ObjectStatus, ObjectWorker
 from backend.app.models.scenario import Scenario
 from backend.app.models.user import User
 from backend.app.services.audit import log_action
+from backend.app.schemas.audit import AuditLogEntryResponse
 from backend.app.schemas.error import RESPONSES_AUTH, RESPONSES_CRUD, RESPONSES_CRUD_CONFLICT
-from backend.app.schemas.object import ObjectCreate, ObjectDetailResponse, ObjectListItemResponse, ObjectResponse
+from backend.app.schemas.object import ObjectCreate, ObjectDetailResponse, ObjectListItemResponse, ObjectResponse, ObjectUpdateCriticality
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,11 @@ async def list_my_objects(
         .distinct()
         .order_by(Object.updated_at.desc())
     )
-    objects = result.scalars().all()
+    _crit_rank = {ObjectCriticality.CRITICAL: 0, ObjectCriticality.HIGH: 1, ObjectCriticality.NORMAL: 2}
+    objects = sorted(
+        result.scalars().all(),
+        key=lambda o: (_crit_rank.get(o.criticality, 2), -o.updated_at.timestamp()),
+    )
 
     items = []
     for obj in objects:
@@ -95,10 +100,48 @@ async def create_object(
 
     await log_action(
         db, user_id=current_user.id, action=AuditAction.CREATE,
-        entity_type="object", entity_id=obj.id,
+        entity_type="object", entity_id=obj.id, object_id=obj.id,
         details={"name": data.name, "scenario_id": data.scenario_id},
     )
     return obj
+
+
+@router.patch("/{object_id}/criticality", response_model=ObjectResponse, responses=RESPONSES_CRUD)
+async def update_criticality(
+    object_id: int,
+    data: ObjectUpdateCriticality,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update object criticality level — accessible to any responsible worker or admin."""
+    obj = await _get_object_with_access(object_id, current_user, db)
+    old_val = obj.criticality
+    obj.criticality = data.criticality
+    await db.flush()
+    await log_action(
+        db, user_id=current_user.id, action=AuditAction.CRITICALITY_CHANGE,
+        entity_type="object", entity_id=object_id, object_id=object_id,
+        details={"from": old_val.value, "to": data.criticality.value},
+    )
+    return obj
+
+
+@router.get("/{object_id}/audit", response_model=list[AuditLogEntryResponse], responses=RESPONSES_CRUD)
+async def get_object_audit(
+    object_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return audit log entries for a specific object, newest first."""
+    await _get_object_with_access(object_id, current_user, db)
+    result = await db.execute(
+        select(AuditLog)
+        .where(AuditLog.object_id == object_id)
+        .options(selectinload(AuditLog.user))
+        .order_by(AuditLog.created_at.desc())
+        .limit(500)
+    )
+    return result.scalars().all()
 
 
 @router.post("/{object_id}/share/{user_id}", status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD_CONFLICT)
@@ -121,7 +164,7 @@ async def share_object(
     await db.flush()
     await log_action(
         db, user_id=current_user.id, action=AuditAction.SHARE,
-        entity_type="object", entity_id=object_id,
+        entity_type="object", entity_id=object_id, object_id=object_id,
         details={"shared_with_user_id": user_id},
     )
     return {"detail": "Object shared"}

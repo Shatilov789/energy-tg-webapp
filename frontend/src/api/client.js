@@ -72,6 +72,11 @@ export const api = {
   markRead: (id) => request(`/notifications/${id}/read`, { method: 'PATCH' }),
   markAllRead: () => request('/notifications/read-all', { method: 'PATCH' }),
 
+  // Objects — criticality + audit
+  updateCriticality: (objectId, criticality) =>
+    request(`/objects/${objectId}/criticality`, { method: 'PATCH', body: JSON.stringify({ criticality }) }),
+  getObjectAudit: (objectId) => request(`/objects/${objectId}/audit`),
+
   // Admin
   getAdminObjects: () => request('/admin/objects'),
   getAdminUsers: () => request('/admin/users'),
