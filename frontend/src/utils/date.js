@@ -9,6 +9,10 @@ export function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+export function formatDateTime(dateStr) {
+  return new Date(dateStr).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
 function pluralDays(n) {
   const mod10 = n % 10;
   const mod100 = n % 100;

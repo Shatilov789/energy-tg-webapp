@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
-import { daysSinceLabel } from '../utils/date';
+import { daysSinceLabel, formatDate, formatDateTime } from '../utils/date';
 import {
   IconChartBar,
   IconList,
@@ -17,6 +17,8 @@ import {
   IconUsers,
   IconShield,
   IconTool,
+  IconChevronDown,
+  IconChevronRight,
 } from '@tabler/icons-react';
 
 const AVA_COLORS = ['ava-a', 'ava-b', 'ava-c', 'ava-d'];
@@ -33,7 +35,6 @@ export default function AdminPage() {
   const navigate = useNavigate();
   const [objects, setObjects] = useState(adminCache?.objects ?? []);
   const [users, setUsers] = useState(adminCache?.users ?? []);
-  const [scenarios, setScenarios] = useState(adminCache?.scenarios ?? {});
   const [loading, setLoading] = useState(!adminCache);
   const [error, setError] = useState(null);
   const showLoadingText = useDelayedLoadingText(loading);
@@ -41,12 +42,15 @@ export default function AdminPage() {
   const [commentModal, setCommentModal] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [workerModal, setWorkerModal] = useState(null); // { objectId, currentWorkerIds }
+  const [workerModal, setWorkerModal] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [userModal, setUserModal] = useState(false);
   const [newUser, setNewUser] = useState({ telegram_id: '', first_name: '', last_name: '', username: '', role: 'worker' });
   const [creatingUser, setCreatingUser] = useState(false);
   const [me, setMe] = useState(null);
+  const [expandedWorkers, setExpandedWorkers] = useState(new Set());
+  const [expandedObjects, setExpandedObjects] = useState(new Set());
+  const [objectNotes, setObjectNotes] = useState({}); // { objectId: { stepId: notes[] } }
 
   useEffect(() => { loadData(); }, []);
 
@@ -60,20 +64,39 @@ export default function AdminPage() {
       setObjects(objs);
       setUsers(usrs);
       setMe(meData);
-
-      const scenMap = {};
-      const scenIds = [...new Set(objs.map(o => o.scenario_id))];
-      for (const sid of scenIds) {
-        try {
-          scenMap[sid] = await api.getScenario(sid);
-        } catch {}
-      }
-      setScenarios(scenMap);
-      adminCache = { objects: objs, users: usrs, scenarios: scenMap };
+      adminCache = { objects: objs, users: usrs };
+      setObjectNotes({});
     } catch (err) {
       if (!adminCache) setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function toggleWorker(id) {
+    setExpandedWorkers(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function toggleObject(obj) {
+    const id = obj.id;
+    const isOpening = !expandedObjects.has(id);
+    setExpandedObjects(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+    if (isOpening && !objectNotes[id]) {
+      const stepIds = (obj.answers || []).map(a => a.step_id);
+      const notesMap = {};
+      await Promise.all(stepIds.map(async stepId => {
+        try { notesMap[stepId] = await api.getStatusNotes(id, stepId); }
+        catch { notesMap[stepId] = []; }
+      }));
+      setObjectNotes(prev => ({ ...prev, [id]: notesMap }));
     }
   }
 
@@ -142,27 +165,26 @@ export default function AdminPage() {
   const userMap = {};
   users.forEach(u => { userMap[u.id] = u; });
 
+  // Metrics
   const totalObjects = objects.length;
   const completedObjects = objects.filter(o => o.status === 'completed').length;
   const inProgressObjects = totalObjects - completedObjects;
 
   let totalAnswered = 0;
   let totalQuestions = 0;
-  const objectDetails = objects.map(obj => {
-    const scen = scenarios[obj.scenario_id];
-    const stepsCount = scen?.steps?.length || 0;
+  objects.forEach(obj => {
+    const stepsCount = obj.scenario?.steps?.length || 0;
     const answersCount = obj.answers?.length || 0;
     totalAnswered += answersCount;
     totalQuestions += stepsCount;
-    const pct = stepsCount > 0 ? Math.round((answersCount / stepsCount) * 100) : 0;
-    const creator = userMap[obj.created_by_id];
-    return { ...obj, scen, stepsCount, answersCount, pct, creator };
   });
-
   const overallPct = totalQuestions > 0 ? Math.round((totalAnswered / totalQuestions) * 100) : 0;
-  const overdueCount = objectDetails.filter(o => o.pct === 0 && o.status !== 'completed').length;
-
-  const needsAttention = objectDetails.filter(o => o.status !== 'completed').sort((a, b) => a.pct - b.pct);
+  const overdueCount = objects.filter(o => {
+    const pct = o.scenario?.steps?.length > 0
+      ? Math.round(((o.answers?.length || 0) / o.scenario.steps.length) * 100)
+      : 0;
+    return pct === 0 && o.status !== 'completed';
+  }).length;
 
   const metrics = [
     { label: 'Выполнено', value: `${overallPct}%`, sub: 'средний прогресс', color: 'var(--acc)' },
@@ -170,6 +192,157 @@ export default function AdminPage() {
     { label: 'Просрочено', value: overdueCount, sub: 'требуют внимания', color: 'var(--err)' },
     { label: 'Завершено', value: completedObjects, sub: 'инспекций', color: 'var(--ok)' },
   ];
+
+  // Group objects by worker userId
+  const workerObjectsMap = {};
+  const unassignedObjects = [];
+  for (const obj of objects) {
+    if (!obj.workers || obj.workers.length === 0) {
+      unassignedObjects.push(obj);
+    } else {
+      for (const w of obj.workers) {
+        if (!workerObjectsMap[w.user_id]) workerObjectsMap[w.user_id] = [];
+        if (!workerObjectsMap[w.user_id].find(o => o.id === obj.id)) {
+          workerObjectsMap[w.user_id].push(obj);
+        }
+      }
+    }
+  }
+
+  // Workers that have at least one object
+  const workersWithObjects = users.filter(u => workerObjectsMap[u.id]?.length > 0);
+
+  function renderObjectExpanded(obj) {
+    const stepsCount = obj.scenario?.steps?.length || 0;
+    const answersCount = obj.answers?.length || 0;
+    const pct = stepsCount > 0 ? Math.round((answersCount / stepsCount) * 100) : 0;
+    const notesLoaded = !!objectNotes[obj.id];
+
+    const answeredItems = (obj.answers || []).map(a => ({
+      answer: a,
+      step: obj.scenario?.steps?.find(s => s.id === a.step_id),
+      notes: objectNotes[obj.id]?.[a.step_id] || [],
+    })).filter(x => x.step).sort((a, b) => a.step.step_number - b.step.step_number);
+
+    return (
+      <div className="obj-body">
+        {/* Ответственные */}
+        <div className="adm-workers-row">
+          <IconUsers size={12} style={{ color: 'var(--mu)', flexShrink: 0 }} />
+          <div className="adm-workers-list">
+            {(obj.workers || []).map(w => (
+              <span className="adm-worker-tag" key={w.user_id}>
+                {w.user?.first_name} {(w.user?.last_name || '').charAt(0)}.
+                <button
+                  className="adm-worker-remove"
+                  onClick={() => handleRemoveWorker(obj.id, w.user_id)}
+                  title="Убрать ответственного"
+                >×</button>
+              </span>
+            ))}
+            <button
+              className="adm-worker-add"
+              onClick={() => setWorkerModal({ objectId: obj.id, currentWorkerIds: (obj.workers || []).map(w => w.user_id) })}
+              title="Добавить ответственного"
+            >
+              <IconUserPlus size={12} />
+            </button>
+          </div>
+        </div>
+
+        {/* Прогресс */}
+        <div className="obj-progress-bar" style={{ marginTop: 8 }}>
+          <div className="obj-progress-fill" style={{
+            width: `${pct}%`,
+            background: pct === 100 ? 'var(--ok)' : pct === 0 ? 'var(--err)' : 'var(--acc)',
+          }} />
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--mu)', marginTop: 4, marginBottom: 8 }}>
+          {answersCount} из {stepsCount} этапов заполнено
+        </div>
+
+        {!notesLoaded && (
+          <div style={{ fontSize: 12, color: 'var(--mu)', fontStyle: 'italic' }}>Загрузка...</div>
+        )}
+
+        {notesLoaded && answeredItems.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--mu)', fontStyle: 'italic', padding: '4px 0' }}>
+            Записей пока нет
+          </div>
+        )}
+
+        {notesLoaded && answeredItems.map(({ answer, step, notes }) => (
+          <div className="adm-detail" key={answer.id}>
+            <div style={{ fontSize: 11, color: 'var(--mu)', marginBottom: 4 }}>
+              Этап {step.step_number} · {step.question_text}
+            </div>
+
+            {notes.length === 0 && (
+              <div style={{ fontSize: 12, color: 'var(--mu)', fontStyle: 'italic', marginBottom: 8 }}>
+                Нет записей
+              </div>
+            )}
+
+            {notes.map(note => (
+              <div key={note.id} style={{
+                fontSize: 13,
+                color: 'var(--tx)',
+                background: 'var(--bg)',
+                border: '1px solid var(--br)',
+                borderRadius: 'var(--rs)',
+                padding: '9px 12px',
+                lineHeight: 1.45,
+                marginBottom: 6,
+                whiteSpace: 'pre-wrap',
+              }}>
+                <div>{note.note_text}</div>
+                <div style={{ fontSize: 11, color: 'var(--mu)', marginTop: 5 }}>
+                  {note.author?.first_name} {note.author?.last_name || ''} · {formatDateTime(note.created_at)}
+                </div>
+              </div>
+            ))}
+
+            <div className="adm-actions">
+              <button className="comment-btn" onClick={() => setCommentModal({ answerId: answer.id, stepText: step.question_text })}>
+                <IconMessagePlus size={13} /> Комментарий
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function renderObjectRow(obj, idx) {
+    const stepsCount = obj.scenario?.steps?.length || 0;
+    const answersCount = obj.answers?.length || 0;
+    const pct = stepsCount > 0 ? Math.round((answersCount / stepsCount) * 100) : 0;
+    const isOpen = expandedObjects.has(obj.id);
+
+    let badgeCls = 'bdg-pend';
+    if (pct === 0) badgeCls = 'bdg-err';
+    if (pct === 100) badgeCls = 'bdg-ok';
+
+    return (
+      <div className="obj-accordion" key={obj.id}>
+        <div className="obj-row" onClick={() => toggleObject(obj)}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {obj.name}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--mu)', marginTop: 2 }}>
+              {obj.scenario?.name || '—'} · {formatDate(obj.created_at)}
+            </div>
+          </div>
+          <span className={`bdg ${badgeCls}`}>{pct}%</span>
+          <span className="obj-caret">
+            {isOpen ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+          </span>
+        </div>
+        {isOpen && renderObjectExpanded(obj)}
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -248,114 +421,66 @@ export default function AdminPage() {
 
         {/* ===== TAB: OBJECTS ===== */}
         {tab === 'objects' && <>
-        {/* Metric grid */}
-        <div className="dash-grid" style={{ marginTop: 4 }}>
-          {metrics.map(m => (
-            <div className="mc" key={m.label}>
-              <div className="mc-label">{m.label}</div>
-              <div className="mv" style={{ color: m.color }}>{m.value}</div>
-              <div className="ml">{m.sub}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Objects list */}
-        <div className="slbl">Все объекты</div>
-
-        {needsAttention.length === 0 && (
-          <div className="empty-state">
-            <IconChecks size={40} />
-            Все объекты завершены
+          {/* Metric grid */}
+          <div className="dash-grid" style={{ marginTop: 4 }}>
+            {metrics.map(m => (
+              <div className="mc" key={m.label}>
+                <div className="mc-label">{m.label}</div>
+                <div className="mv" style={{ color: m.color }}>{m.value}</div>
+                <div className="ml">{m.sub}</div>
+              </div>
+            ))}
           </div>
-        )}
 
-        {needsAttention.map((obj, idx) => {
-          const initials = obj.creator ? getInitials(obj.creator.first_name, obj.creator.last_name) : '??';
-          const avaColor = AVA_COLORS[idx % AVA_COLORS.length];
-          const creatorName = obj.creator
-            ? `${obj.creator.first_name || ''} ${(obj.creator.last_name || '').charAt(0)}.`.trim()
-            : 'Неизвестно';
+          <div className="slbl">Сотрудники</div>
 
-          let badgeCls = 'bdg-pend';
-          let badgeText = `${obj.pct}%`;
-          if (obj.pct === 0) { badgeCls = 'bdg-err'; badgeText = 'Просрочен'; }
-          if (obj.pct === 100) { badgeCls = 'bdg-ok'; badgeText = '100%'; }
-
-          const answeredItems = (obj.answers || []).map(a => ({
-            answer: a,
-            step: obj.scen?.steps?.find(s => s.id === a.step_id),
-          })).filter(x => x.step);
-
-          return (
-            <div className="adm-obj" key={obj.id}>
-              <div className="adm-row">
-                <div className={`ava ${avaColor}`}>{initials}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {obj.name}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--mu)' }}>
-                    {creatorName} · {obj.answersCount}/{obj.stepsCount} вопр. · {daysSinceLabel(obj.created_at)}
-                  </div>
-                </div>
-                <span className={`bdg ${badgeCls}`}>{badgeText}</span>
-              </div>
-
-              <div className="obj-progress-bar" style={{ marginTop: 0 }}>
-                <div className="obj-progress-fill" style={{
-                  width: `${obj.pct}%`,
-                  background: obj.pct === 100 ? 'var(--ok)' : obj.pct === 0 ? 'var(--err)' : 'var(--acc)',
-                }} />
-              </div>
-
-              {/* Ответственные за объект */}
-              <div className="adm-workers-row">
-                <IconUsers size={12} style={{ color: 'var(--mu)', flexShrink: 0 }} />
-                <div className="adm-workers-list">
-                  {(obj.workers || []).map(w => (
-                    <span className="adm-worker-tag" key={w.user_id}>
-                      {w.user?.first_name} {(w.user?.last_name || '').charAt(0)}.
-                      <button
-                        className="adm-worker-remove"
-                        onClick={() => handleRemoveWorker(obj.id, w.user_id)}
-                        title="Убрать ответственного"
-                      >×</button>
-                    </span>
-                  ))}
-                  <button
-                    className="adm-worker-add"
-                    onClick={() => setWorkerModal({ objectId: obj.id, currentWorkerIds: (obj.workers || []).map(w => w.user_id) })}
-                    title="Добавить ответственного"
-                  >
-                    <IconUserPlus size={12} />
-                  </button>
-                </div>
-              </div>
-
-              {answeredItems.map(({ answer, step }) => (
-                <div className="adm-detail" key={answer.id}>
-                  <div style={{ fontSize: 11, color: 'var(--mu)', marginBottom: 6 }}>
-                    Вопрос №{step.step_number}:
-                  </div>
-                  <div className="adm-answer-box">
-                    «{step.question_text}»
-                    <br />
-                    <span style={{ color: 'var(--mu)', fontSize: 11 }}>
-                      Ответ: {answer.answer_text}
-                    </span>
-                  </div>
-                  <div className="adm-actions">
-                    <button className="comment-btn" onClick={() => setCommentModal({ answerId: answer.id, stepText: step.question_text })}>
-                      <IconMessagePlus size={13} /> Комментарий
-                    </button>
-                  </div>
-                </div>
-              ))}
+          {workersWithObjects.length === 0 && unassignedObjects.length === 0 && (
+            <div className="empty-state">
+              <IconChecks size={40} />
+              Объектов нет
             </div>
-          );
-        })}
+          )}
 
-        <div style={{ height: 20 }} />
+          {/* Worker accordion */}
+          {workersWithObjects.map((worker, idx) => {
+            const workerObjs = workerObjectsMap[worker.id] || [];
+            const isOpen = expandedWorkers.has(worker.id);
+            return (
+              <div className="wkr-accordion" key={worker.id}>
+                <div className="wkr-row" onClick={() => toggleWorker(worker.id)}>
+                  <div className={`ava ${AVA_COLORS[idx % AVA_COLORS.length]}`}>
+                    {getInitials(worker.first_name, worker.last_name)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                      {worker.first_name} {worker.last_name || ''}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--mu)', marginTop: 2 }}>
+                      {workerObjs.length} {workerObjs.length === 1 ? 'объект' : workerObjs.length < 5 ? 'объекта' : 'объектов'}
+                    </div>
+                  </div>
+                  <span style={{ color: 'var(--mu)', display: 'flex' }}>
+                    {isOpen ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                  </span>
+                </div>
+                {isOpen && (
+                  <div className="wkr-body">
+                    {workerObjs.map((obj, i) => renderObjectRow(obj, i))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Unassigned objects */}
+          {unassignedObjects.length > 0 && (
+            <>
+              <div className="slbl" style={{ marginTop: 8 }}>Без ответственных</div>
+              {unassignedObjects.map((obj, i) => renderObjectRow(obj, i))}
+            </>
+          )}
+
+          <div style={{ height: 20 }} />
         </>}
       </div>
 

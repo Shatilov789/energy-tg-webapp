@@ -1345,7 +1345,65 @@ textarea, input, button, select {
 
 .role-btn.on { border-color: var(--acc); background: rgba(167,139,250,.12); color: var(--acc); font-weight: 600; }
 
-/* --- Admin Object Cards --- */
+/* --- Admin Worker Accordion --- */
+
+.wkr-accordion {
+  background: var(--s1);
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.wkr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.wkr-row:active { background: var(--s2); }
+
+.wkr-body {
+  border-top: 1px solid var(--br);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* --- Admin Object Accordion (nested) --- */
+
+.obj-accordion {
+  background: var(--s2);
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  overflow: hidden;
+}
+
+.obj-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.obj-row:active { background: var(--s3); }
+
+.obj-caret {
+  color: var(--mu);
+  display: flex;
+  flex-shrink: 0;
+}
+
+.obj-body {
+  border-top: 1px solid var(--br);
+  padding: 10px 12px;
+}
+
+/* --- Admin Object Cards (legacy, kept for reference) --- */
 
 .adm-obj {
   background: var(--s1);
