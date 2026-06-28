@@ -3,7 +3,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,7 +13,8 @@ from backend.app.models.answer import ObjectAnswer
 from backend.app.models.audit import AuditAction
 from backend.app.models.comment import StepComment, StepStatusNote
 from backend.app.models.notification import Notification, NotificationType
-from backend.app.models.object import Object, ObjectWorker
+from backend.app.models.object import Object, ObjectStatus, ObjectWorker
+from backend.app.models.scenario import Scenario
 from backend.app.models.user import User, UserRole
 from backend.app.services.audit import log_action
 from backend.app.schemas.answer import AnswerCreate, AnswerResponse
@@ -237,6 +238,28 @@ async def add_status_note(
         )
         db.add(new_answer)
         await db.flush()
+
+        # Auto-complete object when last step is answered
+        obj_res = await db.execute(
+            select(Object)
+            .where(Object.id == object_id)
+            .options(selectinload(Object.scenario).selectinload(Scenario.steps))
+        )
+        obj = obj_res.scalar_one_or_none()
+        if obj and obj.status != ObjectStatus.COMPLETED:
+            count_res = await db.execute(
+                select(func.count(ObjectAnswer.id)).where(ObjectAnswer.object_id == object_id)
+            )
+            answered_count = count_res.scalar()
+            total_steps = len(obj.scenario.steps) if obj.scenario else 0
+            if total_steps > 0 and answered_count >= total_steps:
+                obj.status = ObjectStatus.COMPLETED
+                await db.flush()
+                await log_action(
+                    db, user_id=current_user.id, action=AuditAction.STATUS_CHANGE,
+                    entity_type="object", entity_id=object_id, object_id=object_id,
+                    details={"status": "completed"},
+                )
 
     await log_action(
         db, user_id=current_user.id, action=AuditAction.CREATE,

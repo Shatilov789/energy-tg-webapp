@@ -19,6 +19,7 @@ import {
   IconTool,
   IconChevronDown,
   IconChevronRight,
+  IconCircleCheck,
 } from '@tabler/icons-react';
 
 const AVA_COLORS = ['ava-a', 'ava-b', 'ava-c', 'ava-d'];
@@ -38,7 +39,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(!adminCache);
   const [error, setError] = useState(null);
   const showLoadingText = useDelayedLoadingText(loading);
-  const [tab, setTab] = useState('objects'); // 'objects' | 'users'
+  const [tab, setTab] = useState('objects'); // 'objects' | 'completed' | 'users'
   const [commentModal, setCommentModal] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -193,10 +194,22 @@ export default function AdminPage() {
     { label: 'Завершено', value: completedObjects, sub: 'инспекций', color: 'var(--ok)' },
   ];
 
-  // Group objects by worker userId
+  // Разделяем активные и завершённые
+  const activeObjects = objects.filter(o => {
+    const stepsCount = o.scenario?.steps?.length || 0;
+    const answersCount = o.answers?.length || 0;
+    return stepsCount === 0 || answersCount < stepsCount;
+  });
+  const completedObjectsList = objects.filter(o => {
+    const stepsCount = o.scenario?.steps?.length || 0;
+    const answersCount = o.answers?.length || 0;
+    return stepsCount > 0 && answersCount >= stepsCount;
+  });
+
+  // Group active objects by worker userId
   const workerObjectsMap = {};
   const unassignedObjects = [];
-  for (const obj of objects) {
+  for (const obj of activeObjects) {
     if (!obj.workers || obj.workers.length === 0) {
       unassignedObjects.push(obj);
     } else {
@@ -209,7 +222,7 @@ export default function AdminPage() {
     }
   }
 
-  // Workers that have at least one object
+  // Workers that have at least one active object
   const workersWithObjects = users.filter(u => workerObjectsMap[u.id]?.length > 0);
 
   function renderObjectExpanded(obj) {
@@ -366,10 +379,17 @@ export default function AdminPage() {
       {/* Внутренние табы */}
       <div className="adm-tabs">
         <button className={`adm-tab${tab === 'objects' ? ' on' : ''}`} onClick={() => setTab('objects')}>
-          <IconChartBar size={15} /> Объекты
+          <IconChartBar size={15} /> В работе
+          {activeObjects.length > 0 && <span className="adm-tab-badge">{activeObjects.length}</span>}
+        </button>
+        <button className={`adm-tab${tab === 'completed' ? ' on' : ''}`} onClick={() => setTab('completed')}>
+          <IconCircleCheck size={15} /> Завершённые
+          {completedObjectsList.length > 0 && (
+            <span className="adm-tab-badge" style={{ background: 'var(--ok)' }}>{completedObjectsList.length}</span>
+          )}
         </button>
         <button className={`adm-tab${tab === 'users' ? ' on' : ''}`} onClick={() => setTab('users')}>
-          <IconUsers size={15} /> Пользователи
+          <IconUsers size={15} /> Люди
           <span className="adm-tab-badge">{users.length}</span>
         </button>
       </div>
@@ -418,6 +438,50 @@ export default function AdminPage() {
             <div style={{ height: 20 }} />
           </>
         )}
+
+        {/* ===== TAB: COMPLETED ===== */}
+        {tab === 'completed' && <>
+          {completedObjectsList.length === 0 ? (
+            <div className="empty-state">
+              <IconCircleCheck size={40} />
+              Завершённых объектов пока нет
+            </div>
+          ) : (
+            <>
+              <div className="slbl" style={{ marginTop: 4 }}>
+                {completedObjectsList.length} {completedObjectsList.length === 1 ? 'объект' : completedObjectsList.length < 5 ? 'объекта' : 'объектов'} завершено
+              </div>
+              {completedObjectsList.map(obj => {
+                const workers = obj.workers || [];
+                return (
+                  <div className="obj-accordion" key={obj.id}>
+                    <div className="obj-row" style={{ cursor: 'default' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {obj.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--mu)', marginTop: 2 }}>
+                          {obj.scenario?.name || '—'} · {formatDate(obj.created_at)}
+                        </div>
+                        {workers.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
+                            {workers.map(w => (
+                              <span className="adm-worker-tag" key={w.user_id} style={{ cursor: 'default' }}>
+                                {w.user?.first_name} {(w.user?.last_name || '').charAt(0)}{w.user?.last_name ? '.' : ''}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <span className="bdg bdg-ok">100%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+          <div style={{ height: 20 }} />
+        </>}
 
         {/* ===== TAB: OBJECTS ===== */}
         {tab === 'objects' && <>

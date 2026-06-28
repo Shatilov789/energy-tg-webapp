@@ -30,7 +30,8 @@ export default function HomePage() {
   const [user, setUser] = useState(homeCache?.user ?? null);
   const [loading, setLoading] = useState(!homeCache);
   const [error, setError] = useState(null);
-  const [critModal, setCritModal] = useState(null); // объект для смены критичности
+  const [critModal, setCritModal] = useState(null);
+  const [homeTab, setHomeTab] = useState('active'); // 'active' | 'completed'
   const showLoadingText = useDelayedLoadingText(loading);
 
   useEffect(() => { loadData(); }, []);
@@ -103,33 +104,64 @@ export default function HomePage() {
         </button>
       </div>
 
+      {/* Таб-переключатель В работе / Завершённые */}
+      <div className="adm-tabs">
+        <button
+          className={`adm-tab${homeTab === 'active' ? ' on' : ''}`}
+          onClick={() => setHomeTab('active')}
+        >
+          В работе
+          {(inProgress.length + notStarted.length) > 0 && (
+            <span className="adm-tab-badge">{inProgress.length + notStarted.length}</span>
+          )}
+        </button>
+        <button
+          className={`adm-tab${homeTab === 'completed' ? ' on' : ''}`}
+          onClick={() => setHomeTab('completed')}
+        >
+          Завершённые
+          {completed.length > 0 && (
+            <span className="adm-tab-badge" style={{ background: 'var(--ok)' }}>{completed.length}</span>
+          )}
+        </button>
+      </div>
+
       <div className="sc">
-        {inProgress.length > 0 && (
+        {homeTab === 'active' && (
           <>
-            <div className="slbl">В работе</div>
-            {inProgress.map(obj => renderObjectCard(obj))}
+            {inProgress.length > 0 && (
+              <>
+                <div className="slbl">В работе</div>
+                {inProgress.map(obj => renderObjectCard(obj))}
+              </>
+            )}
+            {notStarted.length > 0 && (
+              <>
+                <div className="slbl">Новые</div>
+                {notStarted.map(obj => renderObjectCard(obj))}
+              </>
+            )}
+            {inProgress.length === 0 && notStarted.length === 0 && (
+              <div className="empty-state">
+                <IconClipboardOff size={40} />
+                {objects.length === 0 ? 'Объектов пока нет. Создайте первый!' : 'Все объекты завершены!'}
+              </div>
+            )}
           </>
         )}
 
-        {completed.length > 0 && (
+        {homeTab === 'completed' && (
           <>
-            <div className="slbl">Завершённые</div>
-            {completed.map(obj => renderObjectCard(obj, true))}
+            {completed.length > 0
+              ? completed.map(obj => renderObjectCard(obj, true))
+              : (
+                <div className="empty-state">
+                  <IconClipboardOff size={40} />
+                  Завершённых объектов пока нет
+                </div>
+              )
+            }
           </>
-        )}
-
-        {notStarted.length > 0 && (
-          <>
-            <div className="slbl">Новые</div>
-            {notStarted.map(obj => renderObjectCard(obj))}
-          </>
-        )}
-
-        {objects.length === 0 && (
-          <div className="empty-state">
-            <IconClipboardOff size={40} />
-            Объектов пока нет. Создайте первый!
-          </div>
         )}
       </div>
 
