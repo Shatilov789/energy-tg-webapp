@@ -1,4 +1,4 @@
-"""Seed database with dev users."""
+"""Seed the users the application needs to start with."""
 
 import logging
 
@@ -38,3 +38,16 @@ async def seed_dev_admin(db: AsyncSession) -> None:
 
     await db.commit()
     logger.info("Seeded dev admin (tg_id=123456789) and worker (tg_id=987654321)")
+
+
+async def ensure_configured_admin(db: AsyncSession) -> None:
+    """Create the administrator named by ADMIN_TELEGRAM_ID, so a fresh database has someone who can log in."""
+    if not settings.admin_telegram_id:
+        return
+    existing = await db.execute(select(User).where(User.telegram_id == settings.admin_telegram_id))
+    if existing.scalar_one_or_none():
+        return
+
+    db.add(User(telegram_id=settings.admin_telegram_id, first_name="Адміністратор", role=UserRole.ADMIN))
+    await db.commit()
+    logger.info("Created the configured administrator")

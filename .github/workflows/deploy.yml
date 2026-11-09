@@ -1,0 +1,45 @@
+name: Deploy
+
+# test deploys to the test stack, main to the live one, each only after CI passes.
+on:
+  push:
+    branches: [main, test]
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Deploy to server
+    needs: ci
+    # Stays off until the server is ready; see DEPLOY.md.
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'test' }}
+    env:
+      STACK: ${{ github.ref_name == 'main' && 'production' || 'test' }}
+
+    steps:
+      - name: Prepare SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Update the stack
+        env:
+          TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh -i ~/.ssh/id_deploy "$TARGET" "set -e
+            cd /opt/energy/$STACK
+            git fetch origin $GITHUB_SHA
+            git checkout --force $GITHUB_SHA
+            docker compose -p energy-$STACK --env-file .env.deploy -f docker-compose.deploy.yml up -d --build --wait"

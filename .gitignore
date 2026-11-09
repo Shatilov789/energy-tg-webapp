@@ -10,6 +10,15 @@ venv/
 
 # Environment
 .env
+.env.*
+!.env.example
+!.env.deploy.example
+
+# Internal process sources and local tool settings; this repository is public
+*.drawio
+*_PROCESS_DESIGN.md
+_design_ref/
+.claude/settings.local.json
 
 # IDE
 .idea/

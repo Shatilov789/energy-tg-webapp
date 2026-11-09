@@ -134,6 +134,10 @@ On first run in development mode, the app auto-creates:
 | PATCH   | `/api/notifications/{id}/read`            | Mark read                      | Any     |
 | PATCH   | `/api/notifications/read-all`             | Mark all read                  | Any     |
 
+## Deployment
+
+Branches, the test and live stacks and the release flow are described in [DEPLOY.md](DEPLOY.md).
+
 ## Database Migrations
 
 With `APP_ENV=development` the backend creates tables from the models at startup. In every other

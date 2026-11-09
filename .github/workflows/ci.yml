@@ -1,10 +1,10 @@
 name: CI
 
+# Pushes to main and test run this through deploy.yml, ahead of the deployment.
 on:
-  push:
-    branches: [main, test]
   pull_request:
     branches: [main, test]
+  workflow_call:
 
 jobs:
   lint:
@@ -91,3 +91,26 @@ jobs:
 
       - name: Build check
         run: npm run build
+
+  stack:
+    name: Deployment Stack
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start the stack the way the server does
+        run: |
+          cp .env.deploy.example .env.deploy
+          docker compose -p energy-ci --env-file .env.deploy -f docker-compose.deploy.yml up -d --build --wait
+
+      - name: Check the web app and the API through nginx
+        run: |
+          curl -fsS http://127.0.0.1:8081/health
+          curl -fsS http://127.0.0.1:8081/deals/new | grep -q 'id="root"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/api/auth/me)" = "401"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Dev-Telegram-Id: 1' http://127.0.0.1:8081/api/auth/me)" = "401"
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose -p energy-ci --env-file .env.deploy -f docker-compose.deploy.yml logs --no-color

@@ -13,7 +13,7 @@ from backend.app.db.session import async_session, engine
 from backend.app.processes.catalog import seed_process_catalog
 from backend.app.services.bot import start_bot, stop_bot
 from backend.app.services.scheduler import start_scheduler, stop_scheduler
-from backend.app.services.seed import seed_dev_admin
+from backend.app.services.seed import ensure_configured_admin, seed_dev_admin
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +39,7 @@ async def lifespan(app: FastAPI):
             await seed_dev_admin(db)
 
     async with async_session() as db:
+        await ensure_configured_admin(db)
         await seed_process_catalog(db)
 
     start_scheduler()
