@@ -16,11 +16,11 @@ import {
 } from '@tabler/icons-react';
 
 const SCENARIO_ICONS = {
-  'Подстанция': { icon: IconBuildingFactory, cls: 'ci-a', chipCls: 'step-chip-a' },
-  'КЛ линия': { icon: IconLineDashed, cls: 'ci-b', chipCls: 'step-chip-b' },
+  'Підстанція': { icon: IconBuildingFactory, cls: 'ci-a', chipCls: 'step-chip-a' },
+  'КЛ лінія': { icon: IconLineDashed, cls: 'ci-b', chipCls: 'step-chip-b' },
   'Трансформатор': { icon: IconBolt, cls: 'ci-r', chipCls: 'step-chip-r' },
   'Ремонт': { icon: IconTool, cls: 'ci-g', chipCls: 'step-chip-g' },
-  'Проверка оборудования': { icon: IconClipboardCheck, cls: 'ci-p', chipCls: 'step-chip-p' },
+  'Перевірка обладнання': { icon: IconClipboardCheck, cls: 'ci-p', chipCls: 'step-chip-p' },
 };
 
 export default function ObjectsPage() {
@@ -87,7 +87,7 @@ export default function ObjectsPage() {
     return SCENARIO_ICONS[name] || { icon: IconFileText, cls: 'ci-a', chipCls: 'step-chip-default' };
   }
 
-  if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
+  if (loading) return <div className="loading">{showLoadingText ? 'Завантаження...' : ''}</div>;
 
   const canSubmit = newName.trim().length > 0 && selectedScenario !== null;
 
@@ -97,27 +97,27 @@ export default function ObjectsPage() {
         <button className="btn-bk" onClick={() => navigate('/')}>
           <IconChevronLeft size={20} />
         </button>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>Новый объект</div>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>Новий обʼєкт</div>
       </div>
 
       <div className="sc" style={{ paddingBottom: 32 }}>
         <div className="fgrp" style={{ marginTop: 4 }}>
-          <label className="flbl">Наименование объекта</label>
+          <label className="flbl">Назва обʼєкта</label>
           <input
             className="finp"
             type="text"
-            placeholder="ПС 110/10 кВ «Название»"
+            placeholder="ПС 110/10 кВ «Назва»"
             value={newName}
             onChange={e => setNewName(e.target.value)}
           />
         </div>
 
         <div className="fgrp">
-          <label className="flbl">Адрес / Комментарий</label>
+          <label className="flbl">Адреса / Коментар</label>
           <textarea
             className="finp"
             rows={3}
-            placeholder="ул. Промышленная, 14..."
+            placeholder="вул. Промислова, 14..."
             style={{ resize: 'none', lineHeight: 1.5 }}
             value={newComment}
             onChange={e => setNewComment(e.target.value)}
@@ -125,7 +125,7 @@ export default function ObjectsPage() {
         </div>
 
         <div className="fgrp">
-          <label className="flbl">Сценарий инспекции</label>
+          <label className="flbl">Сценарій інспекції</label>
           <div className="scen-select" ref={dropdownRef}>
             <button
               type="button"
@@ -143,7 +143,7 @@ export default function ObjectsPage() {
                   </span>
                 );
               })() : (
-                <span className="scen-select-placeholder">Выберите сценарий...</span>
+                <span className="scen-select-placeholder">Оберіть сценарій...</span>
               )}
               <IconChevronDown size={18} className={`scen-select-arrow ${dropdownOpen ? 'open' : ''}`} />
             </button>
@@ -183,7 +183,7 @@ export default function ObjectsPage() {
                   <div style={{ flex: 1 }}>
                     <div className="scen-title">{selectedScenario.name}</div>
                     <div className="scen-sub">
-                      {steps.length} вопросов · {selectedScenario.description}
+                      {steps.length} запитань · {selectedScenario.description}
                     </div>
                   </div>
                 </div>
@@ -218,7 +218,7 @@ export default function ObjectsPage() {
           }}
         >
           <IconCircleCheck size={18} />
-          {creating ? 'Создание...' : 'Создать объект и начать'}
+          {creating ? 'Створення...' : 'Створити обʼєкт і почати'}
         </button>
       </div>
     </div>

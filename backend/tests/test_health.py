@@ -1,8 +1,7 @@
-"""
-Тест healthcheck endpoint.
+"""Health check test.
 
-Самый базовый тест — проверяет что приложение вообще запускается и отвечает.
-Если этот тест падает — значит проблема в конфигурации или импортах.
+The most basic check that the application starts and responds. A failure here points
+at configuration or imports.
 """
 
 import pytest
@@ -11,7 +10,7 @@ from httpx import AsyncClient
 
 @pytest.mark.asyncio
 async def test_health_endpoint(client: AsyncClient):
-    """GET /health — должен вернуть 200 и статус ok. Не требует авторизации."""
+    """GET /health returns 200 and status ok, without authentication."""
     response = await client.get("/health")
     assert response.status_code == 200
     data = response.json()

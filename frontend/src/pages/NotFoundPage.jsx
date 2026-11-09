@@ -10,9 +10,9 @@ export default function NotFoundPage() {
         <IconError404 size={28} />
       </div>
       <div style={{ fontSize: 22, fontWeight: 700 }}>404</div>
-      <div style={{ fontSize: 14, color: 'var(--mu)', marginBottom: 16 }}>Страница не найдена</div>
+      <div style={{ fontSize: 14, color: 'var(--mu)', marginBottom: 16 }}>Сторінку не знайдено</div>
       <button className="btn-p" style={{ width: 'auto', padding: '0 28px' }} onClick={() => navigate('/')}>
-        <IconHome size={18} /> На главную
+        <IconHome size={18} /> На головну
       </button>
     </div>
   );

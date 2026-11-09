@@ -1,19 +1,17 @@
-"""
-Тесты уведомлений (/api/notifications/).
+"""Notification tests (/api/notifications/).
 
-ПРОВЕРЯЕМ:
-- Список уведомлений — только свои, отсортированы по дате
-- Счетчик непрочитанных
-- Пометка одного как прочитанного
-- Пометка всех как прочитанных → счетчик = 0
-- Изоляция: один работник не видит уведомления другого
-- Комментарий админа создает уведомление работнику
+Covers:
+- The list holds only the user's own notifications, sorted by date.
+- Unread counter.
+- Marking one as read.
+- Marking all as read brings the counter to 0.
+- Isolation: a worker does not see another worker's notifications.
 
-ТИПЫ УВЕДОМЛЕНИЙ:
-- REMINDER — напоминание о незаполненном шаге (фоновая задача)
-- ADMIN_COMMENT — админ оставил комментарий к ответу
-- OBJECT_SHARED — объект расшарен с работником
-- STEP_UNLOCKED — админ разблокировал шаг для редактирования
+Notification types:
+- REMINDER: unfilled step reminder (background job).
+- ADMIN_COMMENT: an admin commented on an answer.
+- OBJECT_SHARED: an object was shared with a worker.
+- STEP_UNLOCKED: an admin unlocked a step for editing.
 """
 
 import pytest
@@ -26,10 +24,7 @@ from backend.app.models.user import User
 
 @pytest.mark.asyncio
 async def test_list_notifications(client: AsyncClient, worker_user: User, db: AsyncSession):
-    """
-    GET /notifications/ — возвращает уведомления текущего пользователя.
-    Создаем 1 уведомление → видим его в списке, is_read=False.
-    """
+    """GET /notifications/ returns the current user's notifications, unread by default."""
     db.add(
         Notification(
             user_id=worker_user.id,
@@ -54,7 +49,7 @@ async def test_list_notifications(client: AsyncClient, worker_user: User, db: As
 
 @pytest.mark.asyncio
 async def test_unread_count(client: AsyncClient, worker_user: User, db: AsyncSession):
-    """GET /notifications/unread-count — количество непрочитанных."""
+    """GET /notifications/unread-count returns the number of unread notifications."""
     for i in range(3):
         db.add(
             Notification(
@@ -76,10 +71,7 @@ async def test_unread_count(client: AsyncClient, worker_user: User, db: AsyncSes
 
 @pytest.mark.asyncio
 async def test_mark_read(client: AsyncClient, worker_user: User, db: AsyncSession):
-    """
-    PATCH /notifications/{id}/read — помечает конкретное уведомление как прочитанное.
-    После этого счетчик непрочитанных уменьшается на 1.
-    """
+    """PATCH /notifications/{id}/read marks one notification read and lowers the counter by 1."""
     notif = Notification(
         user_id=worker_user.id,
         type=NotificationType.ADMIN_COMMENT,
@@ -92,21 +84,18 @@ async def test_mark_read(client: AsyncClient, worker_user: User, db: AsyncSessio
 
     headers = {"X-Dev-Telegram-Id": str(worker_user.telegram_id)}
 
-    # Помечаем прочитанным
+    # Mark as read
     response = await client.patch(f"/api/notifications/{notif.id}/read", headers=headers)
     assert response.status_code == 200
 
-    # Проверяем что счетчик = 0
+    # The counter is now 0
     count_res = await client.get("/api/notifications/unread-count", headers=headers)
     assert count_res.json()["count"] == 0
 
 
 @pytest.mark.asyncio
 async def test_mark_all_read(client: AsyncClient, worker_user: User, db: AsyncSession):
-    """
-    PATCH /notifications/read-all — помечает ВСЕ уведомления как прочитанные.
-    5 непрочитанных → mark_all_read → счетчик = 0.
-    """
+    """PATCH /notifications/read-all marks ALL notifications read: 5 unread become 0."""
     for i in range(5):
         db.add(
             Notification(
@@ -129,10 +118,7 @@ async def test_mark_all_read(client: AsyncClient, worker_user: User, db: AsyncSe
 async def test_notification_isolation(
     client: AsyncClient, worker_user: User, second_worker: User, db: AsyncSession
 ):
-    """
-    Изоляция: работник видит ТОЛЬКО свои уведомления.
-    Создаем уведомление для worker_1 → worker_2 не видит его.
-    """
+    """Isolation: a notification for worker 1 is invisible to worker 2."""
     db.add(
         Notification(
             user_id=worker_user.id,
@@ -143,14 +129,14 @@ async def test_notification_isolation(
     )
     await db.commit()
 
-    # Worker 2 не видит уведомления Worker 1
+    # Worker 2 does not see Worker 1's notifications
     response = await client.get(
         "/api/notifications/",
         headers={"X-Dev-Telegram-Id": str(second_worker.telegram_id)},
     )
     assert len(response.json()) == 0
 
-    # Worker 2 — счетчик = 0
+    # Worker 2's counter is 0
     count_res = await client.get(
         "/api/notifications/unread-count",
         headers={"X-Dev-Telegram-Id": str(second_worker.telegram_id)},

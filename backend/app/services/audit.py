@@ -18,6 +18,7 @@ async def log_action(
     entity_type: str,
     entity_id: int | None = None,
     object_id: int | None = None,
+    deal_id: int | None = None,
     details: dict | str | None = None,
     ip_address: str | None = None,
 ) -> AuditLog:
@@ -31,6 +32,7 @@ async def log_action(
         entity_type=entity_type,
         entity_id=entity_id,
         object_id=object_id,
+        deal_id=deal_id,
         details=details,
         ip_address=ip_address,
     )

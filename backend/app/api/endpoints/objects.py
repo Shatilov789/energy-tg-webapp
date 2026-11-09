@@ -11,7 +11,7 @@ from backend.app.core.security import get_current_user
 from backend.app.db.session import get_db
 from backend.app.models.answer import ObjectAnswer
 from backend.app.models.audit import AuditAction, AuditLog
-from backend.app.models.object import Object, ObjectCriticality, ObjectStatus, ObjectWorker
+from backend.app.models.object import Object, ObjectCriticality, ObjectWorker
 from backend.app.models.scenario import Scenario
 from backend.app.models.user import User
 from backend.app.services.audit import log_action
@@ -159,7 +159,7 @@ async def share_object(
         select(ObjectWorker).where(ObjectWorker.object_id == object_id, ObjectWorker.user_id == user_id)
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already has access")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Користувач уже має доступ")
 
     db.add(ObjectWorker(object_id=object_id, user_id=user_id))
     await db.flush()
@@ -185,7 +185,7 @@ async def _get_object_with_access(object_id: int, user: User, db: AsyncSession) 
     )
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Обʼєкт не знайдено")
 
     has_access = obj.created_by_id == user.id or any(w.user_id == user.id for w in obj.workers)
     from backend.app.models.user import UserRole
@@ -193,5 +193,5 @@ async def _get_object_with_access(object_id: int, user: User, db: AsyncSession) 
         has_access = True
 
     if not has_access:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this object")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Немає доступу до цього обʼєкта")
     return obj

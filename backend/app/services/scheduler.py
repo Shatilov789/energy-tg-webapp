@@ -5,14 +5,14 @@ from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.config import settings
-from backend.app.db.session import async_session
+from backend.app.db.session import async_session, run_after_commit
 from backend.app.models.answer import ObjectAnswer
 from backend.app.models.notification import Notification, NotificationType
 from backend.app.models.object import Object, ObjectStatus
 from backend.app.models.scenario import ScenarioStep
+from backend.app.services.notifications import notify
 
 logger = logging.getLogger(__name__)
 
@@ -66,18 +66,20 @@ async def check_unfilled_steps():
                 if existing.scalar_one_or_none():
                     continue
 
-                notification = Notification(
+                await notify(
+                    db,
                     user_id=obj.created_by_id,
-                    type=NotificationType.REMINDER,
-                    title="Напоминание о незаполненном шаге",
-                    message=f"Объект '{obj.name}': шаг {next_step} из {total_steps} ожидает заполнения",
+                    notification_type=NotificationType.REMINDER,
+                    title="Нагадування про незаповнений крок",
+                    message=f"Обʼєкт '{obj.name}': крок {next_step} з {total_steps} очікує заповнення",
+                    push_text=f"⏰ Обʼєкт «{obj.name}»: крок {next_step} з {total_steps} очікує заповнення",
                     object_id=obj.id,
                     step_number=next_step,
                 )
-                db.add(notification)
                 logger.info("Reminder sent: object %d step %d for user %d", obj.id, next_step, obj.created_by_id)
 
         await db.commit()
+        await run_after_commit(db)
 
 
 def start_scheduler():

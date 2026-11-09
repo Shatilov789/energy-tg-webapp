@@ -1,18 +1,17 @@
-"""
-Тесты админ-панели (/api/admin/).
+"""Admin panel tests (/api/admin/).
 
-ПРОВЕРЯЕМ:
-- Создание пользователя админом → 201
-- Дубликат telegram_id → 409
-- Список всех пользователей
-- Деактивация/активация пользователя (toggle)
-- Работник не может использовать админ-эндпоинты → 403
-- Комментарий к ответу → 201, создает уведомление работнику
-- Разблокировка ответа → 200, создает уведомление
+Covers:
+- Creating a user as admin: 201.
+- Duplicate telegram_id: 409.
+- Listing all users.
+- Deactivating/activating a user (toggle).
+- Workers are refused on admin endpoints: 403.
+- Commenting on an answer: 201, and the worker is notified.
+- Unlocking an answer: 200, and the worker is notified.
 
-РОЛИ:
-- admin — полный доступ: видит все, управляет пользователями, комментирует, разблокирует
-- worker — только свои объекты и шаги, не может управлять пользователями
+Roles:
+- admin: full access; sees everything, manages users, comments, unlocks.
+- worker: only their own objects and steps; cannot manage users.
 """
 
 import pytest
@@ -30,7 +29,7 @@ from backend.app.models.user import User
 
 @pytest.mark.asyncio
 async def test_create_user(client: AsyncClient, admin_user: User):
-    """Админ регистрирует нового работника по telegram_id."""
+    """An admin registers a new worker by telegram_id."""
     response = await client.post(
         "/api/admin/users",
         json={
@@ -50,7 +49,7 @@ async def test_create_user(client: AsyncClient, admin_user: User):
 
 @pytest.mark.asyncio
 async def test_create_duplicate_user(client: AsyncClient, admin_user: User):
-    """Повторная регистрация того же telegram_id → 409 Conflict."""
+    """Registering the same telegram_id again: 409 Conflict."""
     headers = {"X-Dev-Telegram-Id": str(admin_user.telegram_id)}
     await client.post(
         "/api/admin/users",
@@ -67,14 +66,14 @@ async def test_create_duplicate_user(client: AsyncClient, admin_user: User):
 
 @pytest.mark.asyncio
 async def test_list_users(client: AsyncClient, admin_user: User, worker_user: User):
-    """Админ видит всех зарегистрированных пользователей."""
+    """An admin sees every registered user."""
     response = await client.get(
         "/api/admin/users",
         headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
     )
     assert response.status_code == 200
     users = response.json()
-    assert len(users) >= 2  # admin + worker как минимум
+    assert len(users) >= 2  # at least the admin and the worker
     tg_ids = [u["telegram_id"] for u in users]
     assert admin_user.telegram_id in tg_ids
     assert worker_user.telegram_id in tg_ids
@@ -82,10 +81,7 @@ async def test_list_users(client: AsyncClient, admin_user: User, worker_user: Us
 
 @pytest.mark.asyncio
 async def test_toggle_active_deactivate(client: AsyncClient, admin_user: User, worker_user: User):
-    """
-    Деактивация пользователя: is_active True → False.
-    После этого пользователь не сможет авторизоваться.
-    """
+    """Deactivation flips is_active from True to False, after which the user cannot log in."""
     response = await client.patch(
         f"/api/admin/users/{worker_user.id}/toggle-active",
         headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
@@ -96,22 +92,19 @@ async def test_toggle_active_deactivate(client: AsyncClient, admin_user: User, w
 
 @pytest.mark.asyncio
 async def test_toggle_active_reactivate(client: AsyncClient, admin_user: User, worker_user: User):
-    """
-    Toggle работает в обе стороны: деактивировать → активировать.
-    Два вызова toggle → возвращается в исходное состояние.
-    """
+    """Toggling twice returns the user to the original state."""
     headers = {"X-Dev-Telegram-Id": str(admin_user.telegram_id)}
 
-    # Деактивировать
+    # Deactivate
     await client.patch(f"/api/admin/users/{worker_user.id}/toggle-active", headers=headers)
-    # Активировать обратно
+    # Activate again
     response = await client.patch(f"/api/admin/users/{worker_user.id}/toggle-active", headers=headers)
     assert response.json()["is_active"] is True
 
 
 @pytest.mark.asyncio
 async def test_toggle_nonexistent_user(client: AsyncClient, admin_user: User):
-    """Toggle для несуществующего пользователя → 404."""
+    """Toggling a user that does not exist: 404."""
     response = await client.patch(
         "/api/admin/users/99999/toggle-active",
         headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
@@ -124,7 +117,7 @@ async def test_toggle_nonexistent_user(client: AsyncClient, admin_user: User):
 
 @pytest.mark.asyncio
 async def test_worker_cannot_access_admin_endpoints(client: AsyncClient, worker_user: User):
-    """Работник не имеет доступа к админ-эндпоинтам → 403 на каждый."""
+    """A worker gets 403 on every admin endpoint."""
     headers = {"X-Dev-Telegram-Id": str(worker_user.telegram_id)}
 
     # GET /admin/users
@@ -145,7 +138,7 @@ async def test_worker_cannot_access_admin_endpoints(client: AsyncClient, worker_
 
 
 async def _create_answer(client: AsyncClient, db: AsyncSession, worker: User) -> tuple[int, int]:
-    """Хелпер: сценарий + объект + ответ. Возвращает (answer_id, worker_id)."""
+    """Helper: scenario + object + answer. Returns (answer_id, worker_id)."""
     scenario = Scenario(name="Comment Test", description="test")
     db.add(scenario)
     await db.flush()
@@ -172,12 +165,7 @@ async def _create_answer(client: AsyncClient, db: AsyncSession, worker: User) ->
 async def test_admin_comment_on_answer(
     client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession
 ):
-    """
-    Админ комментирует ответ работника.
-    1. Работник отвечает на шаг
-    2. Админ пишет комментарий → 201
-    3. Проверяем что комментарий сохранен
-    """
+    """An admin comments on a worker's answer and the comment is saved."""
     answer_id, _ = await _create_answer(client, db, worker_user)
 
     comment_res = await client.post(
@@ -194,10 +182,7 @@ async def test_admin_comment_on_answer(
 async def test_admin_comment_creates_notification(
     client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession
 ):
-    """
-    Когда админ комментирует — работник получает уведомление типа ADMIN_COMMENT.
-    Проверяем что после комментария в БД появляется notification для работника.
-    """
+    """Commenting creates an ADMIN_COMMENT notification for the worker."""
     answer_id, worker_id = await _create_answer(client, db, worker_user)
 
     await client.post(
@@ -206,7 +191,7 @@ async def test_admin_comment_creates_notification(
         headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
     )
 
-    # Проверяем уведомление в БД
+    # Check the notification in the database
     result = await db.execute(
         select(Notification).where(
             Notification.user_id == worker_id,
@@ -220,7 +205,7 @@ async def test_admin_comment_creates_notification(
 
 @pytest.mark.asyncio
 async def test_comment_on_nonexistent_answer(client: AsyncClient, admin_user: User):
-    """Комментарий к несуществующему ответу → 404."""
+    """Commenting on an answer that does not exist: 404."""
     response = await client.post(
         "/api/admin/answers/99999/comment",
         json={"comment_text": "Ghost comment"},
@@ -236,10 +221,7 @@ async def test_comment_on_nonexistent_answer(client: AsyncClient, admin_user: Us
 async def test_unlock_creates_notification(
     client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession
 ):
-    """
-    Разблокировка ответа создает уведомление STEP_UNLOCKED для работника.
-    Работник узнает что можно редактировать.
-    """
+    """Unlocking creates a STEP_UNLOCKED notification, so the worker knows they can edit."""
     answer_id, worker_id = await _create_answer(client, db, worker_user)
 
     await client.patch(
@@ -259,7 +241,7 @@ async def test_unlock_creates_notification(
 
 @pytest.mark.asyncio
 async def test_unlock_nonexistent_answer(client: AsyncClient, admin_user: User):
-    """Разблокировка несуществующего ответа → 404."""
+    """Unlocking an answer that does not exist: 404."""
     response = await client.patch(
         "/api/admin/answers/99999/unlock",
         headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},

@@ -53,21 +53,23 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
             result = await db.execute(select(User).where(User.telegram_id == int(dev_tg_id)))
             user = result.scalar_one_or_none()
             if not user:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Користувача не знайдено")
+            if not user.is_active:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Користувача деактивовано")
             return user
 
     user_data = validate_telegram_init_data(init_data)
     if not user_data:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Telegram auth")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Помилка авторизації Telegram")
 
     telegram_id = user_data["id"]
     result = await db.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not registered")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Користувача не зареєстровано")
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User deactivated")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Користувача деактивовано")
 
     return user
 
@@ -75,5 +77,5 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """FastAPI dependency: require admin role."""
     if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Потрібні права адміністратора")
     return current_user

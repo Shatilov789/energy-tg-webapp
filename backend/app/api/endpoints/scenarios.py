@@ -47,7 +47,7 @@ async def get_scenario(
     )
     scenario = result.scalar_one_or_none()
     if not scenario:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scenario not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сценарій не знайдено")
     return scenario
 
 
@@ -74,7 +74,7 @@ async def add_step(
     """Add step to scenario (admin only)."""
     result = await db.execute(select(Scenario).where(Scenario.id == scenario_id))
     if not result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scenario not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сценарій не знайдено")
 
     step = ScenarioStep(
         scenario_id=scenario_id,

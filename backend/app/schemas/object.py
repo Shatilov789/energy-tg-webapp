@@ -21,7 +21,7 @@ class ObjectUpdateCriticality(BaseModel):
 
 
 class WorkerResponse(BaseModel):
-    """Ответственный за объект — строка таблицы object_workers."""
+    """A responsible worker: one row of the object_workers table."""
 
     id: int
     user_id: int

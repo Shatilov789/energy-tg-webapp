@@ -15,6 +15,9 @@ class NotificationType(str, enum.Enum):
     OBJECT_SHARED = "object_shared"
     STEP_UNLOCKED = "step_unlocked"
     STEP_COMMENT = "step_comment"
+    WORKER_ASSIGNED = "worker_assigned"
+    WORKER_REMOVED = "worker_removed"
+    OBJECT_COMPLETED = "object_completed"
 
 
 class Notification(Base):

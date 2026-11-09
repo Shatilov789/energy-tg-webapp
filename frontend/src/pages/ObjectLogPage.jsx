@@ -17,24 +17,24 @@ import {
 
 const ACTION_META = {
   create: {
-    object:           { label: 'Объект создан' },
-    answer:           { label: 'Ответ добавлен' },
-    step_status_note: { label: 'Статус добавлен' },
-    user:             { label: 'Пользователь создан' },
-    _default:         { label: 'Создано' },
+    object:           { label: 'Обʼєкт створено' },
+    answer:           { label: 'Відповідь додано' },
+    step_status_note: { label: 'Статус додано' },
+    user:             { label: 'Користувача створено' },
+    _default:         { label: 'Створено' },
   },
   update: {
-    answer:   { label: 'Ответ обновлён' },
-    object:   { label: 'Объект обновлён' },
-    _default: { label: 'Обновлено' },
+    answer:   { label: 'Відповідь оновлено' },
+    object:   { label: 'Обʼєкт оновлено' },
+    _default: { label: 'Оновлено' },
   },
-  criticality_change: { _default: { label: 'Критичность изменена' } },
-  share:              { _default: { label: 'Ответственный изменён' } },
-  comment:            { _default: { label: 'Комментарий добавлен' } },
-  unlock:             { _default: { label: 'Шаг разблокирован' } },
-  status_change:      { _default: { label: 'Статус изменён' } },
-  delete:             { _default: { label: 'Удалено' } },
-  login:              { _default: { label: 'Вход в систему' } },
+  criticality_change: { _default: { label: 'Критичність змінено' } },
+  share:              { _default: { label: 'Відповідального змінено' } },
+  comment:            { _default: { label: 'Коментар додано' } },
+  unlock:             { _default: { label: 'Крок розблоковано' } },
+  status_change:      { _default: { label: 'Статус змінено' } },
+  delete:             { _default: { label: 'Видалено' } },
+  login:              { _default: { label: 'Вхід у систему' } },
 };
 
 const ACTION_CLS = {
@@ -69,7 +69,7 @@ function ActionIcon({ cls }) {
   }
 }
 
-const CRIT_LABELS = { normal: 'Норма', high: 'Высокий', critical: 'Критический' };
+const CRIT_LABELS = { normal: 'Норма', high: 'Високий', critical: 'Критичний' };
 
 function parseDetails(entry) {
   if (!entry.details) return null;
@@ -78,23 +78,23 @@ function parseDetails(entry) {
     if (entry.action === 'criticality_change') {
       return `${CRIT_LABELS[d.from] || d.from} → ${CRIT_LABELS[d.to] || d.to}`;
     }
-    if (d.added_worker)   return `Добавлен ответственный #${d.added_worker}`;
-    if (d.removed_worker) return `Убран ответственный #${d.removed_worker}`;
-    if (d.step_id)        return `Шаг #${d.step_id}`;
-    if (d.is_active !== undefined) return d.is_active ? 'Активирован' : 'Деактивирован';
+    if (d.added_worker)   return `Додано відповідального #${d.added_worker}`;
+    if (d.removed_worker) return `Прибрано відповідального #${d.removed_worker}`;
+    if (d.step_id)        return `Крок #${d.step_id}`;
+    if (d.is_active !== undefined) return d.is_active ? 'Активовано' : 'Деактивовано';
     return null;
   } catch { return null; }
 }
 
 function formatTime(iso) {
-  return new Date(iso).toLocaleString('ru-RU', {
+  return new Date(iso).toLocaleString('uk-UA', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
 }
 
 function formatDateGroup(iso) {
-  return new Date(iso).toLocaleDateString('ru-RU', {
+  return new Date(iso).toLocaleDateString('uk-UA', {
     day: '2-digit', month: 'long', year: 'numeric',
   });
 }
@@ -117,7 +117,7 @@ export default function ObjectLogPage() {
         api.getObject(objectId).catch(() => null),
       ]);
       setEntries(auditData);
-      setObjectName(objData?.name || `Объект #${objectId}`);
+      setObjectName(objData?.name || `Обʼєкт #${objectId}`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -125,10 +125,10 @@ export default function ObjectLogPage() {
     }
   }
 
-  if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
+  if (loading) return <div className="loading">{showLoadingText ? 'Завантаження...' : ''}</div>;
   if (error)   return <div className="error">{error}</div>;
 
-  // Группировка по дате
+  // Group by date
   const groups = [];
   let lastKey = null;
   for (const entry of entries) {
@@ -151,7 +151,7 @@ export default function ObjectLogPage() {
 
       <div className="sc">
         {entries.length === 0 && (
-          <div className="empty-state">Записей пока нет</div>
+          <div className="empty-state">Записів поки немає</div>
         )}
         {groups.map(({ key, items }) => (
           <div key={key}>

@@ -12,11 +12,12 @@ from backend.app.db.session import get_db
 from backend.app.models.answer import ObjectAnswer
 from backend.app.models.audit import AuditAction
 from backend.app.models.comment import StepComment, StepStatusNote
-from backend.app.models.notification import Notification, NotificationType
+from backend.app.models.notification import NotificationType
 from backend.app.models.object import Object, ObjectStatus, ObjectWorker
 from backend.app.models.scenario import Scenario
 from backend.app.models.user import User, UserRole
 from backend.app.services.audit import log_action
+from backend.app.services.notifications import notify
 from backend.app.schemas.answer import AnswerCreate, AnswerResponse
 from backend.app.schemas.error import RESPONSES_CRUD, RESPONSES_CRUD_CONFLICT
 from backend.app.schemas.step_comment import StepCommentCreate, StepCommentResponse, StepStatusNoteCreate, StepStatusNoteResponse
@@ -41,7 +42,7 @@ async def submit_answer(
         select(ObjectAnswer).where(ObjectAnswer.object_id == object_id, ObjectAnswer.step_id == step_id)
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Step already answered")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="На цей крок уже є відповідь")
 
     answer = ObjectAnswer(
         object_id=object_id,
@@ -71,6 +72,8 @@ async def update_answer(
     db: AsyncSession = Depends(get_db),
 ):
     """Update answer — only if unlocked by admin."""
+    await _verify_access(object_id, current_user, db)
+
     result = await db.execute(
         select(ObjectAnswer)
         .where(ObjectAnswer.object_id == object_id, ObjectAnswer.step_id == step_id)
@@ -78,10 +81,10 @@ async def update_answer(
     )
     answer = result.scalar_one_or_none()
     if not answer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Answer not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Відповідь не знайдено")
 
     if answer.is_locked and current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Answer locked — request admin unlock")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Відповідь заблоковано — зверніться до адміністратора")
 
     answer.answer_text = data.answer_text
     answer.answered_by_id = current_user.id
@@ -141,14 +144,16 @@ async def add_step_comment(
     await db.flush()
 
     if data.recipient_id and data.recipient_id != current_user.id:
-        notification = Notification(
+        await notify(
+            db,
             user_id=data.recipient_id,
-            type=NotificationType.STEP_COMMENT,
-            title="Упоминание в обсуждении",
-            message=f"{current_user.first_name} упомянул вас в обсуждении шага",
+            notification_type=NotificationType.STEP_COMMENT,
+            title="Згадка в обговоренні",
+            message=f"{current_user.first_name} згадує вас в обговоренні кроку",
+            push_text=f"💬 {current_user.first_name} згадує вас в обговоренні кроку",
+            object_id=object_id,
+            step_number=step_id,
         )
-        db.add(notification)
-        await db.flush()
 
     await log_action(
         db, user_id=current_user.id, action=AuditAction.COMMENT,
@@ -207,7 +212,7 @@ async def add_status_note(
             )
         )
         if not worker_result.scalar_one_or_none():
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only responsible workers can add status notes")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Додавати статус можуть лише відповідальні співробітники")
 
     # Block if step is locked (unless admin)
     answer_result = await db.execute(
@@ -215,7 +220,7 @@ async def add_status_note(
     )
     answer = answer_result.scalar_one_or_none()
     if answer and answer.is_locked and current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Step is locked")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Крок заблоковано")
 
     note = StepStatusNote(
         object_id=object_id,
@@ -243,7 +248,10 @@ async def add_status_note(
         obj_res = await db.execute(
             select(Object)
             .where(Object.id == object_id)
-            .options(selectinload(Object.scenario).selectinload(Scenario.steps))
+            .options(
+                selectinload(Object.scenario).selectinload(Scenario.steps),
+                selectinload(Object.workers).selectinload(ObjectWorker.user),
+            )
         )
         obj = obj_res.scalar_one_or_none()
         if obj and obj.status != ObjectStatus.COMPLETED:
@@ -260,6 +268,16 @@ async def add_status_note(
                     entity_type="object", entity_id=object_id, object_id=object_id,
                     details={"status": "completed"},
                 )
+                for worker_link in obj.workers:
+                    await notify(
+                        db,
+                        user_id=worker_link.user_id,
+                        notification_type=NotificationType.OBJECT_COMPLETED,
+                        title="Обʼєкт завершено",
+                        message=f"Усі кроки обʼєкта '{obj.name}' заповнено",
+                        push_text=f"✅ Обʼєкт «{obj.name}» повністю заповнено!",
+                        object_id=object_id,
+                    )
 
     await log_action(
         db, user_id=current_user.id, action=AuditAction.CREATE,
@@ -293,7 +311,7 @@ async def _verify_access(object_id: int, user: User, db: AsyncSession) -> None:
     result = await db.execute(select(Object).where(Object.id == object_id))
     obj = result.scalar_one_or_none()
     if not obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Обʼєкт не знайдено")
 
     if user.role == UserRole.ADMIN:
         return
@@ -302,4 +320,4 @@ async def _verify_access(object_id: int, user: User, db: AsyncSession) -> None:
         select(ObjectWorker).where(ObjectWorker.object_id == object_id, ObjectWorker.user_id == user.id)
     )
     if not worker.scalar_one_or_none() and obj.created_by_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Немає доступу")

@@ -16,11 +16,13 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str = ""
     admin_telegram_id: int = 0
+    webapp_url: str = ""  # Telegram Web App URL for the button in push notifications
 
     # Reminder: days before sending notification about unfilled step
     reminder_delay_days: int = 2
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    # extra="ignore": the shared .env also carries variables meant for other containers (POSTGRES_*).
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @property
     def is_development(self) -> bool:

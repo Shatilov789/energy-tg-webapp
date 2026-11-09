@@ -1,19 +1,16 @@
-"""
-Тесты CRUD сценариев (/api/scenarios/).
+"""Scenario CRUD tests (/api/scenarios/).
 
-ПРОВЕРЯЕМ:
-- Админ создает сценарий → 201
-- Работник НЕ может создать сценарий → 403
-- Любой авторизованный пользователь видит список сценариев
-- Админ добавляет шаги к сценарию
-- Получение сценария со всеми шагами
-- Несуществующий сценарий → 404
+Covers:
+- An admin creates a scenario: 201.
+- A worker cannot create one: 403.
+- Any authenticated user sees the scenario list.
+- An admin adds steps to a scenario.
+- Fetching a scenario with all its steps.
+- Unknown scenario: 404.
 
-КАК УСТРОЕНЫ СЦЕНАРИИ:
-- Сценарий = шаблон проверки (например "Подстанция")
-- Внутри сценария — шаги (до 40), каждый шаг = один вопрос
-- Создавать/редактировать может только админ
-- Работники только читают и заполняют
+Scenario model:
+- A scenario is an inspection template; each step in it is one question.
+- Only admins create or edit scenarios; workers read and fill them in.
 """
 
 import pytest
@@ -24,7 +21,7 @@ from backend.app.models.user import User
 
 @pytest.mark.asyncio
 async def test_create_scenario_as_admin(client: AsyncClient, admin_user: User):
-    """Админ создает сценарий → 201, возвращает id, name, is_active=True."""
+    """An admin creates a scenario: 201, with id, name and is_active=True."""
     response = await client.post(
         "/api/scenarios/",
         json={"name": "Test Scenario", "description": "Testing"},
@@ -39,7 +36,7 @@ async def test_create_scenario_as_admin(client: AsyncClient, admin_user: User):
 
 @pytest.mark.asyncio
 async def test_create_scenario_as_worker_forbidden(client: AsyncClient, worker_user: User):
-    """Работник пытается создать сценарий → 403 Forbidden. Только админ может."""
+    """A worker trying to create a scenario: 403 Forbidden."""
     response = await client.post(
         "/api/scenarios/",
         json={"name": "Should Fail"},
@@ -50,11 +47,7 @@ async def test_create_scenario_as_worker_forbidden(client: AsyncClient, worker_u
 
 @pytest.mark.asyncio
 async def test_list_scenarios(client: AsyncClient, admin_user: User, worker_user: User):
-    """
-    Работник видит сценарии созданные админом.
-    1. Админ создает сценарий
-    2. Работник делает GET /scenarios/ → видит его в списке
-    """
+    """A worker sees scenarios created by an admin."""
     await client.post(
         "/api/scenarios/",
         json={"name": "Scenario A"},
@@ -73,10 +66,7 @@ async def test_list_scenarios(client: AsyncClient, admin_user: User, worker_user
 
 @pytest.mark.asyncio
 async def test_add_step_to_scenario(client: AsyncClient, admin_user: User):
-    """
-    Админ добавляет шаг (вопрос) к сценарию.
-    step_number — порядковый номер, question_text — текст вопроса.
-    """
+    """An admin adds a step (question) to a scenario."""
     res = await client.post(
         "/api/scenarios/",
         json={"name": "With Steps"},
@@ -96,16 +86,13 @@ async def test_add_step_to_scenario(client: AsyncClient, admin_user: User):
 
 @pytest.mark.asyncio
 async def test_get_scenario_with_steps(client: AsyncClient, admin_user: User):
-    """
-    GET /scenarios/{id} возвращает сценарий вместе со всеми шагами.
-    Шаги отсортированы по step_number.
-    """
+    """GET /scenarios/{id} returns the scenario with all steps, sorted by step_number."""
     headers = {"X-Dev-Telegram-Id": str(admin_user.telegram_id)}
 
     res = await client.post("/api/scenarios/", json={"name": "Full Scenario"}, headers=headers)
     sid = res.json()["id"]
 
-    # Добавляем 3 шага
+    # Add 3 steps
     for i in range(1, 4):
         await client.post(
             f"/api/scenarios/{sid}/steps",
@@ -124,7 +111,7 @@ async def test_get_scenario_with_steps(client: AsyncClient, admin_user: User):
 
 @pytest.mark.asyncio
 async def test_get_nonexistent_scenario(client: AsyncClient, admin_user: User):
-    """Запрос несуществующего сценария → 404."""
+    """Requesting a scenario that does not exist: 404."""
     response = await client.get(
         "/api/scenarios/99999",
         headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
@@ -134,7 +121,7 @@ async def test_get_nonexistent_scenario(client: AsyncClient, admin_user: User):
 
 @pytest.mark.asyncio
 async def test_add_step_to_nonexistent_scenario(client: AsyncClient, admin_user: User):
-    """Добавление шага к несуществующему сценарию → 404."""
+    """Adding a step to a scenario that does not exist: 404."""
     response = await client.post(
         "/api/scenarios/99999/steps",
         json={"step_number": 1, "question_text": "Q?"},

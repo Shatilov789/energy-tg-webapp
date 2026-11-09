@@ -1,18 +1,15 @@
-"""
-Тесты авторизации (endpoint /api/auth/me).
+"""Authentication tests (/api/auth/me).
 
-ПРОВЕРЯЕМ:
-- Админ получает свои данные с role=admin
-- Работник получает свои данные с role=worker
-- Без заголовка авторизации → 401
-- Неизвестный telegram_id → 404
-- Деактивированный пользователь → 403
+Covers:
+- An admin gets their data with role=admin.
+- A worker gets their data with role=worker.
+- No auth header: 401.
+- Unknown telegram_id: 404.
+- Deactivated user: 403.
 
-КАК РАБОТАЕТ АВТОРИЗАЦИЯ В DEV-РЕЖИМЕ:
-- Заголовок X-Dev-Telegram-Id содержит telegram_id пользователя
-- Система ищет пользователя в БД по этому ID
-- Если бот-токен не задан (dev mode) — это единственный способ авторизации
-- В продакшене вместо этого проверяется Telegram initData (подпись от Telegram)
+Dev-mode authentication:
+- The X-Dev-Telegram-Id header carries the user's telegram_id, looked up in the database.
+- Outside development the Telegram initData signature is verified instead.
 """
 
 import pytest
@@ -24,7 +21,7 @@ from backend.app.models.user import User
 
 @pytest.mark.asyncio
 async def test_get_me_as_admin(client: AsyncClient, admin_user: User):
-    """Админ запрашивает /me → получает свои данные, role=admin."""
+    """An admin calling /me gets their own data with role=admin."""
     response = await client.get(
         "/api/auth/me",
         headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
@@ -38,7 +35,7 @@ async def test_get_me_as_admin(client: AsyncClient, admin_user: User):
 
 @pytest.mark.asyncio
 async def test_get_me_as_worker(client: AsyncClient, worker_user: User):
-    """Работник запрашивает /me → получает свои данные, role=worker."""
+    """A worker calling /me gets their own data with role=worker."""
     response = await client.get(
         "/api/auth/me",
         headers={"X-Dev-Telegram-Id": str(worker_user.telegram_id)},
@@ -50,14 +47,14 @@ async def test_get_me_as_worker(client: AsyncClient, worker_user: User):
 
 @pytest.mark.asyncio
 async def test_get_me_unauthorized(client: AsyncClient):
-    """Запрос без заголовка авторизации → 401 Unauthorized."""
+    """A request without an auth header: 401 Unauthorized."""
     response = await client.get("/api/auth/me")
     assert response.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_get_me_unknown_user(client: AsyncClient):
-    """Запрос с telegram_id которого нет в БД → 404 Not Found."""
+    """A telegram_id missing from the database: 404 Not Found."""
     response = await client.get(
         "/api/auth/me",
         headers={"X-Dev-Telegram-Id": "999999999"},
@@ -67,11 +64,7 @@ async def test_get_me_unknown_user(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_get_me_deactivated_user(client: AsyncClient, worker_user: User, db: AsyncSession):
-    """
-    Деактивированный пользователь (is_active=False) → 403 Forbidden.
-    Даже если пользователь есть в БД — доступ запрещен.
-    Админ деактивирует через toggle-active.
-    """
+    """A user deactivated through toggle-active gets 403 even though they exist in the database."""
     worker_user.is_active = False
     await db.commit()
 

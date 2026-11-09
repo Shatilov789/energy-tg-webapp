@@ -46,7 +46,14 @@ energytgwebapp/
 │   │   ├── api/
 │   │   │   ├── router.py        # Central router
 │   │   │   └── endpoints/       # Route handlers
+│   │   ├── processes/           # Business processes
+│   │   │   ├── definition.py    # Stage/transition format
+│   │   │   ├── engine.py        # Starts and advances deals
+│   │   │   ├── registry.py      # All known processes
+│   │   │   ├── catalog.py       # Seeds stages into the DB
+│   │   │   └── ses.py, askoe.py, standard.py, nonstandard.py, ip.py, commerce.py
 │   │   ├── services/
+│   │   │   ├── notifications.py # notify(): in-app record + push after commit
 │   │   │   └── seed.py          # Dev seed data
 │   │   └── db/
 │   │       ├── base.py          # DeclarativeBase
@@ -60,6 +67,8 @@ energytgwebapp/
 │   │   ├── App.jsx              # Router
 │   │   ├── api/client.js        # API client
 │   │   ├── pages/               # Page components
+│   │   ├── components/          # Parts of the larger pages
+│   │   ├── processes.js         # Process list and icons
 │   │   └── styles/global.css    # Styles (dark theme)
 │   ├── index.html
 │   ├── package.json
@@ -125,6 +134,25 @@ On first run in development mode, the app auto-creates:
 | PATCH   | `/api/notifications/{id}/read`            | Mark read                      | Any     |
 | PATCH   | `/api/notifications/read-all`             | Mark all read                  | Any     |
 
+## Database Migrations
+
+With `APP_ENV=development` the backend creates tables from the models at startup. In every other
+environment the schema comes from Alembic, so run this before starting the backend:
+
+```bash
+PYTHONPATH=. alembic -c backend/alembic.ini upgrade head
+```
+
+The stage catalog of each process is seeded automatically at startup in all environments.
+
+## Adding a Business Process
+
+1. Add `backend/app/processes/<name>.py` with `STAGES`, `TRANSITIONS` and `PROCESS`.
+2. Register `PROCESS` in `backend/app/processes/registry.py`.
+3. Add its label and icon to `frontend/src/processes.js`.
+
+`backend/tests/test_processes.py` validates the new graph automatically.
+
 ## Business Flow
 
 1. Admin registers workers by Telegram ID
@@ -132,7 +160,7 @@ On first run in development mode, the app auto-creates:
 3. Worker picks scenario → creates inspection object (name + comment)
 4. Worker fills steps one by one (text answers, auto-saved)
 5. Progress saved — worker can close and resume later
-6. Filled answers are locked — editable only with admin unlock
+6. Answers stay editable until an admin locks them; a locked answer needs an admin unlock
 7. Admin monitors all workers/objects, comments on answers
 8. Objects can be shared between multiple workers
 9. Reminders sent if a step stays unfilled for 2 days

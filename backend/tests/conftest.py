@@ -1,17 +1,16 @@
-"""
-Общие фикстуры для тестов.
+"""Shared test fixtures.
 
-КАК РАБОТАЕТ:
-- Используем SQLite в памяти (не PostgreSQL) — тесты быстрые и изолированные
-- Перед КАЖДЫМ тестом создаются таблицы, после — удаляются (чистая БД)
-- Фикстура `client` подменяет зависимость get_db на тестовую сессию
-- Фикстуры admin_user/worker_user создают пользователей в тестовой БД
-- Авторизация через заголовок X-Dev-Telegram-Id (dev-mode bypass)
+How it works:
+- Tests run on SQLite instead of PostgreSQL, which keeps them fast and isolated.
+- Tables are created before EVERY test and dropped after it.
+- The `client` fixture swaps the get_db dependency for the test session.
+- The admin_user/worker_user fixtures create users in the test database.
+- Authentication goes through the X-Dev-Telegram-Id header (dev-mode bypass).
 
-ЗАВИСИМОСТИ:
-- aiosqlite — async SQLite драйвер для тестов
-- httpx — AsyncClient для отправки запросов к FastAPI без реального сервера
-- pytest-asyncio — поддержка async тестов
+Dependencies:
+- aiosqlite: async SQLite driver for the tests.
+- httpx: AsyncClient that calls FastAPI without a real server.
+- pytest-asyncio: async test support.
 """
 
 import asyncio
@@ -27,7 +26,7 @@ from backend.app.db.session import get_db
 from backend.app.main import app
 from backend.app.models.user import User, UserRole
 
-# SQLite в памяти — каждый тест начинает с нуля, ничего не остается на диске
+# Recreated for every test, so each one starts from an empty database.
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
 engine = create_async_engine(TEST_DATABASE_URL, echo=False)
@@ -36,7 +35,7 @@ TestSession = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=F
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """Один event loop на всю тест-сессию. Нужен для async фикстур."""
+    """One event loop for the whole test session; async fixtures need it."""
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
@@ -44,12 +43,8 @@ def event_loop():
 
 @pytest_asyncio.fixture(autouse=True)
 async def setup_db():
-    """
-    Автоматически выполняется перед каждым тестом.
-    Создает все таблицы → тест работает → удаляет все таблицы.
-    Гарантирует что тесты не влияют друг на друга.
-    """
-    import backend.app.models  # noqa: F401 — импорт регистрирует модели в Base.metadata
+    """Create all tables before each test and drop them after, so tests cannot affect each other."""
+    import backend.app.models  # noqa: F401 — the import registers the models in Base.metadata
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -60,21 +55,19 @@ async def setup_db():
 
 @pytest_asyncio.fixture
 async def db() -> AsyncGenerator[AsyncSession, None]:
-    """Тестовая сессия БД. Используется и напрямую, и через client."""
+    """Test database session, used directly and through `client`."""
     async with TestSession() as session:
         yield session
 
 
 @pytest_asyncio.fixture
 async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """
-    HTTP-клиент для отправки запросов к API.
+    """HTTP client for calling the API.
 
-    КАК РАБОТАЕТ:
-    1. Подменяет зависимость get_db — вместо реальной БД используется тестовая
-    2. ASGITransport — запросы идут напрямую в приложение, без сети
-    3. base_url="http://test" — фейковый URL, запросы не уходят в интернет
-    4. После теста — очищает подмены
+    1. Replaces the get_db dependency with the test session.
+    2. ASGITransport sends requests straight into the app, with no network.
+    3. base_url="http://test" is a placeholder; nothing leaves the process.
+    4. Clears the overrides after the test.
     """
     async def override_get_db():
         yield db
@@ -88,7 +81,7 @@ async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 @pytest_asyncio.fixture
 async def admin_user(db: AsyncSession) -> User:
-    """Создает тестового администратора в БД. telegram_id=111111111."""
+    """Create a test administrator. telegram_id=111111111."""
     user = User(
         telegram_id=111111111,
         first_name="Test",
@@ -104,7 +97,7 @@ async def admin_user(db: AsyncSession) -> User:
 
 @pytest_asyncio.fixture
 async def worker_user(db: AsyncSession) -> User:
-    """Создает тестового работника в БД. telegram_id=222222222."""
+    """Create a test worker. telegram_id=222222222."""
     user = User(
         telegram_id=222222222,
         first_name="Test",
@@ -120,7 +113,7 @@ async def worker_user(db: AsyncSession) -> User:
 
 @pytest_asyncio.fixture
 async def second_worker(db: AsyncSession) -> User:
-    """Второй работник — для тестов совместного доступа и изоляции."""
+    """A second worker, for shared-access and isolation tests."""
     user = User(
         telegram_id=333333333,
         first_name="Second",

@@ -12,12 +12,12 @@ from backend.app.db.session import get_db
 from backend.app.models.answer import ObjectAnswer
 from backend.app.models.audit import AuditAction
 from backend.app.models.comment import AdminComment, StepComment
-from backend.app.models.scenario import ScenarioStep
-from backend.app.models.notification import Notification, NotificationType
+from backend.app.models.notification import NotificationType
 from backend.app.models.object import Object, ObjectCriticality, ObjectWorker
 from backend.app.models.scenario import Scenario
-from backend.app.models.user import User, UserRole
+from backend.app.models.user import User
 from backend.app.services.audit import log_action
+from backend.app.services.notifications import notify
 from backend.app.schemas.comment import CommentCreate, CommentResponse
 from backend.app.schemas.error import RESPONSES_AUTH, RESPONSES_CRUD, RESPONSES_CRUD_CONFLICT
 from backend.app.schemas.object import AdminObjectResponse
@@ -52,7 +52,7 @@ async def create_user(
     """Register new user by Telegram ID."""
     existing = await db.execute(select(User).where(User.telegram_id == data.telegram_id))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Користувач уже існує")
 
     user = User(
         telegram_id=data.telegram_id,
@@ -81,7 +81,7 @@ async def toggle_user_active(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Користувача не знайдено")
     user.is_active = not user.is_active
     await db.flush()
     await log_action(
@@ -118,7 +118,7 @@ async def list_all_objects(
     )
 
 
-# --- Responsible workers (ответственные за объект) ---
+# --- Responsible workers ---
 
 
 @router.post("/objects/{object_id}/workers/{user_id}", status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD_CONFLICT)
@@ -128,23 +128,31 @@ async def add_worker(
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Добавить ответственного за объект."""
+    """Assign a responsible worker to an object."""
     obj = await db.get(Object, object_id)
     if not obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Обʼєкт не знайдено")
 
     target_user = await db.get(User, user_id)
     if not target_user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Користувача не знайдено")
 
     existing = await db.execute(
         select(ObjectWorker).where(ObjectWorker.object_id == object_id, ObjectWorker.user_id == user_id)
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already responsible")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Користувач уже відповідальний")
 
     db.add(ObjectWorker(object_id=object_id, user_id=user_id))
-    await db.flush()
+    await notify(
+        db,
+        user_id=user_id,
+        notification_type=NotificationType.WORKER_ASSIGNED,
+        title="Призначено відповідальним",
+        message=f"Вас призначено відповідальним за обʼєкт '{obj.name}'",
+        push_text=f"🔔 Вас призначено відповідальним за обʼєкт «{obj.name}»",
+        object_id=object_id,
+    )
     await log_action(
         db, user_id=admin.id, action=AuditAction.SHARE,
         entity_type="object", entity_id=object_id, object_id=object_id,
@@ -160,16 +168,27 @@ async def remove_worker(
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Убрать ответственного с объекта."""
+    """Remove a responsible worker from an object."""
     result = await db.execute(
         select(ObjectWorker).where(ObjectWorker.object_id == object_id, ObjectWorker.user_id == user_id)
     )
     link = result.scalar_one_or_none()
     if not link:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found on object")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Співробітника на обʼєкті не знайдено")
+
+    removed_obj = await db.get(Object, object_id)
+    object_label = removed_obj.name if removed_obj else object_id
 
     await db.delete(link)
-    await db.flush()
+    await notify(
+        db,
+        user_id=user_id,
+        notification_type=NotificationType.WORKER_REMOVED,
+        title="Знято з обʼєкта",
+        message=f"Вас знято з відповідальності за обʼєкт '{object_label}'",
+        push_text=f"ℹ️ Вас знято з відповідальності за обʼєкт «{object_label}»",
+        object_id=object_id,
+    )
     await log_action(
         db, user_id=admin.id, action=AuditAction.UPDATE,
         entity_type="object", entity_id=object_id, object_id=object_id,
@@ -196,31 +215,31 @@ async def add_comment(
     )
     answer = result.scalar_one_or_none()
     if not answer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Answer not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Відповідь не знайдено")
 
     comment = AdminComment(answer_id=answer_id, admin_id=admin.id, comment_text=data.comment_text)
     db.add(comment)
 
-    # Системное событие в тред-обсуждении шага
+    # System event in the step's discussion thread
     db.add(StepComment(
         object_id=answer.object_id,
         step_id=answer.step_id,
         author_id=admin.id,
         is_system_event=True,
         event_type="admin_comment",
-        comment_text="Администратор оставил комментарий",
+        comment_text="Адміністратор залишив коментар",
     ))
 
-    notification = Notification(
+    await notify(
+        db,
         user_id=answer.answered_by_id,
-        type=NotificationType.ADMIN_COMMENT,
-        title="Комментарий администратора",
-        message=f"Администратор оставил комментарий к шагу {answer.step.step_number} в '{answer.object.name}'",
+        notification_type=NotificationType.ADMIN_COMMENT,
+        title="Коментар адміністратора",
+        message=f"Адміністратор залишив коментар до кроку {answer.step.step_number} в '{answer.object.name}'",
+        push_text=f"💬 Адміністратор залишив коментар до кроку {answer.step.step_number} в «{answer.object.name}»",
         object_id=answer.object_id,
         step_number=answer.step.step_number,
     )
-    db.add(notification)
-    await db.flush()
 
     await log_action(
         db, user_id=admin.id, action=AuditAction.COMMENT,
@@ -246,7 +265,7 @@ async def lock_answer(
     )
     answer = result.scalar_one_or_none()
     if not answer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Answer not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Відповідь не знайдено")
 
     answer.is_locked = True
     await db.flush()
@@ -257,19 +276,19 @@ async def lock_answer(
         author_id=None,
         is_system_event=True,
         event_type="lock",
-        comment_text="Администратор заблокировал ответ",
+        comment_text="Адміністратор заблокував відповідь",
     ))
 
-    notification = Notification(
+    await notify(
+        db,
         user_id=answer.answered_by_id,
-        type=NotificationType.STEP_UNLOCKED,
-        title="Шаг заблокирован",
-        message=f"Администратор заблокировал шаг {answer.step.step_number} в '{answer.object.name}'",
+        notification_type=NotificationType.STEP_UNLOCKED,
+        title="Крок заблоковано",
+        message=f"Адміністратор заблокував крок {answer.step.step_number} в '{answer.object.name}'",
+        push_text=f"🔒 Крок {answer.step.step_number} обʼєкта «{answer.object.name}» заблоковано адміністратором",
         object_id=answer.object_id,
         step_number=answer.step.step_number,
     )
-    db.add(notification)
-    await db.flush()
 
     await log_action(
         db, user_id=admin.id, action=AuditAction.UPDATE,
@@ -293,31 +312,31 @@ async def unlock_answer(
     )
     answer = result.scalar_one_or_none()
     if not answer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Answer not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Відповідь не знайдено")
 
     answer.is_locked = False
     await db.flush()
 
-    # Системное событие в тред-обсуждении шага
+    # System event in the step's discussion thread
     db.add(StepComment(
         object_id=answer.object_id,
         step_id=answer.step_id,
         author_id=None,
         is_system_event=True,
         event_type="unlock",
-        comment_text="Администратор разблокировал ответ",
+        comment_text="Адміністратор розблокував відповідь",
     ))
 
-    notification = Notification(
+    await notify(
+        db,
         user_id=answer.answered_by_id,
-        type=NotificationType.STEP_UNLOCKED,
-        title="Шаг разблокирован",
-        message=f"Администратор разблокировал шаг {answer.step.step_number} в '{answer.object.name}' для редактирования",
+        notification_type=NotificationType.STEP_UNLOCKED,
+        title="Крок розблоковано",
+        message=f"Адміністратор розблокував крок {answer.step.step_number} в '{answer.object.name}' для редагування",
+        push_text=f"🔓 Крок {answer.step.step_number} обʼєкта «{answer.object.name}» розблоковано — можна доповнити",
         object_id=answer.object_id,
         step_number=answer.step.step_number,
     )
-    db.add(notification)
-    await db.flush()
 
     await log_action(
         db, user_id=admin.id, action=AuditAction.UNLOCK,

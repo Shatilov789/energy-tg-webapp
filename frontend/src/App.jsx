@@ -6,6 +6,8 @@ import HistoryPage from './pages/HistoryPage';
 import NotificationsPage from './pages/NotificationsPage';
 import AdminPage from './pages/AdminPage';
 import ObjectLogPage from './pages/ObjectLogPage';
+import NewDealPage from './pages/NewDealPage';
+import DealPage from './pages/DealPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
@@ -19,6 +21,8 @@ export default function App() {
         <Route path="/objects/:objectId/log" element={<ObjectLogPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/deals/new" element={<NewDealPage />} />
+        <Route path="/deals/:dealId" element={<DealPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>

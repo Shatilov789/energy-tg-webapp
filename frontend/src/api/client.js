@@ -11,8 +11,8 @@ function getAuthHeaders() {
   if (tg?.initData) {
     return { 'X-Telegram-Init-Data': tg.initData };
   }
-  // Dev fallback
-  return { 'X-Dev-Telegram-Id': '123456789' };
+  // Dev fallback — matches ADMIN_TELEGRAM_ID seeded in .env
+  return { 'X-Dev-Telegram-Id': '567835393' };
 }
 
 async function request(path, options = {}) {
@@ -26,8 +26,9 @@ async function request(path, options = {}) {
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ detail: 'Request failed' }));
-    throw new Error(error.detail || `HTTP ${res.status}`);
+    const error = await res.json().catch(() => ({ detail: 'Не вдалося виконати запит' }));
+    // Validation errors (422) carry a list of field problems instead of a message.
+    throw new Error(typeof error.detail === 'string' ? error.detail : 'Перевірте правильність введених даних');
   }
 
   return res.json();
@@ -53,7 +54,7 @@ export const api = {
   updateAnswer: (objectId, stepId, data) =>
     request(`/objects/${objectId}/steps/${stepId}/answer`, { method: 'PUT', body: JSON.stringify(data) }),
 
-  // Step status notes (комментарий к этапу — лог статусов)
+  // Step status notes (the step's status log)
   getStatusNotes: (objectId, stepId) => request(`/objects/${objectId}/steps/${stepId}/status-notes`),
   addStatusNote: (objectId, stepId, data) =>
     request(`/objects/${objectId}/steps/${stepId}/status-notes`, { method: 'POST', body: JSON.stringify(data) }),
@@ -90,4 +91,11 @@ export const api = {
     request('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
   toggleUserActive: (userId) =>
     request(`/admin/users/${userId}/toggle-active`, { method: 'PATCH' }),
+
+  // Deals
+  getStages: (processType = 'СЕС') => request(`/deals/stages?process_type=${encodeURIComponent(processType)}`),
+  getDeals: () => request('/deals/'),
+  getDeal: (id) => request(`/deals/${id}`),
+  createDeal: (data) => request('/deals/', { method: 'POST', body: JSON.stringify(data) }),
+  advanceDeal: (id, data) => request(`/deals/${id}/advance`, { method: 'POST', body: JSON.stringify(data) }),
 };

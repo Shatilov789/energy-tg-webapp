@@ -10,7 +10,7 @@
   --acc2: #4C84E8;
   --ok: #3DBE7A;
   --err: #E5484D;
-  --warn: #E8A838; /* оставлен жёлтым — цвет предупреждений, не используется в UI */
+  --warn: #E8A838; /* kept yellow: warning colour, not used in the UI */
   --purple: #8B7CF0;
   --tx: #ECECEC;
   --mu: #9A9A96;
@@ -554,14 +554,14 @@ textarea, input, button, select {
 .qtextarea::placeholder { color: var(--mu2); }
 .qtextarea.answered { border-color: rgba(46,204,113,.3); }
 .qtextarea.locked { border-color: rgba(149,82,204,.3); }
-/* Auto-grow: без фиксированной высоты */
+/* Auto-grow: no fixed height */
 .qtextarea.qtextarea-grow {
   min-height: unset;
   overflow-y: hidden;
   resize: none;
 }
 
-/* Поле дополнения: цвет границы — amber */
+/* Follow-up field: amber border */
 .qtextarea.qtextarea-supplement {
   min-height: unset;
   border-color: rgba(167,139,250,.35);
@@ -569,7 +569,7 @@ textarea, input, button, select {
 }
 .qtextarea.qtextarea-supplement:focus { border-color: var(--acc); }
 
-/* Мета-строка под readonly ответом: автор + дата */
+/* Meta line under a read-only answer: author and date */
 .answer-meta {
   font-size: 10px;
   font-family: var(--font-mono);
@@ -578,7 +578,7 @@ textarea, input, button, select {
   padding: 0 2px;
 }
 
-/* Сворачиваемые блоки */
+/* Collapsible blocks */
 .collapse-toggle { cursor: pointer; user-select: none; }
 .collapse-chev {
   margin-left: auto;
@@ -597,7 +597,7 @@ textarea, input, button, select {
   flex-shrink: 0;
 }
 
-/* Секция "Комментарий к этапу" */
+/* Step comment section */
 .step-comment-section { margin-top: 12px; }
 .step-comment-lbl {
   display: flex;
@@ -611,7 +611,7 @@ textarea, input, button, select {
   margin-bottom: 0;
 }
 
-/* Лог статусов этапа */
+/* Step status log */
 .snotes-list {
   display: flex;
   flex-direction: column;
@@ -850,7 +850,7 @@ textarea, input, button, select {
 
 .discuss-send:disabled { opacity: .4; cursor: default; }
 
-/* Системное событие в тред-обсуждении */
+/* System event in the discussion thread */
 .discuss-event {
   display: flex;
   align-items: center;
@@ -861,7 +861,7 @@ textarea, input, button, select {
   padding: 2px 0;
 }
 
-/* Кнопка "Ответить" на сообщении */
+/* Reply button on a message */
 .discuss-reply-btn {
   background: none;
   border: none;
@@ -875,7 +875,7 @@ textarea, input, button, select {
 }
 .discuss-reply-btn:hover { color: var(--acc2); }
 
-/* Бар "отвечаю на..." над полем ввода */
+/* "Replying to" bar above the input */
 .discuss-reply-bar {
   display: flex;
   align-items: center;
@@ -910,7 +910,7 @@ textarea, input, button, select {
   padding: 0 2px;
 }
 
-/* Цитата внутри сообщения (reply_to) */
+/* Quote inside a message (reply_to) */
 .discuss-quoted {
   border-left: 2px solid var(--acc2);
   padding: 3px 8px;
@@ -934,7 +934,7 @@ textarea, input, button, select {
   margin-right: 4px;
 }
 
-/* Flash-подсветка при скролле к оригиналу */
+/* Flash highlight when scrolling to the original message */
 @keyframes discuss-flash {
   0%   { background: rgba(167,139,250,.25); }
   100% { background: transparent; }
@@ -1502,7 +1502,7 @@ textarea, input, button, select {
   cursor: pointer;
 }
 
-/* --- Ответственные за объект (AdminPage) --- */
+/* --- Responsible workers (AdminPage) --- */
 
 .adm-workers-row {
   display: flex;

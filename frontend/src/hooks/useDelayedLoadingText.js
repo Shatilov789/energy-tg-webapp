@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Показывает текст "Загрузка..." только если загрузка длится дольше delayMs.
- * Быстрые загрузки не мигают текстом.
+ * Shows the loading text only when loading takes longer than delayMs,
+ * so fast loads do not flash it.
  */
 export function useDelayedLoadingText(loading, delayMs = 3000) {
   const [show, setShow] = useState(false);

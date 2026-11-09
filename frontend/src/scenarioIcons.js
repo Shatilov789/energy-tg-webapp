@@ -8,11 +8,11 @@ import {
 } from '@tabler/icons-react';
 
 const SCENARIO_ICONS = {
-  'Подстанция': { icon: IconBuildingFactory, cls: 'ci-a' },
-  'КЛ линия': { icon: IconLineDashed, cls: 'ci-b' },
+  'Підстанція': { icon: IconBuildingFactory, cls: 'ci-a' },
+  'КЛ лінія': { icon: IconLineDashed, cls: 'ci-b' },
   'Трансформатор': { icon: IconBolt, cls: 'ci-r' },
   'Ремонт': { icon: IconTool, cls: 'ci-g' },
-  'Проверка оборудования': { icon: IconClipboardCheck, cls: 'ci-p' },
+  'Перевірка обладнання': { icon: IconClipboardCheck, cls: 'ci-p' },
 };
 
 export function getScenarioIcon(name) {

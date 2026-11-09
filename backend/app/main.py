@@ -11,9 +11,10 @@ from backend.app.api.router import api_router
 from backend.app.core.config import settings
 from backend.app.db.base import Base
 from backend.app.db.session import async_session, engine
+from backend.app.processes.catalog import seed_process_catalog
 from backend.app.services.bot import start_bot, stop_bot
 from backend.app.services.scheduler import start_scheduler, stop_scheduler
-from backend.app.services.seed import seed_dev_admin, seed_scenarios
+from backend.app.services.seed import seed_dev_admin
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Starting Energy CRM [%s]", settings.app_env)
 
-    # In dev mode: auto-create tables and seed data
+    # In dev mode tables come from the models; everywhere else from `alembic upgrade head`.
     if settings.is_development:
         # Import all models so Base.metadata knows about them
         import backend.app.models  # noqa: F401
@@ -36,8 +37,10 @@ async def lifespan(app: FastAPI):
         logger.info("Database tables created")
 
         async with async_session() as db:
-            await seed_scenarios(db)
             await seed_dev_admin(db)
+
+    async with async_session() as db:
+        await seed_process_catalog(db)
 
     start_scheduler()
     await start_bot()

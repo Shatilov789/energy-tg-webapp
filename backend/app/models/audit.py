@@ -3,7 +3,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.db.base import Base
@@ -30,6 +30,7 @@ class AuditLog(Base):
     entity_type: Mapped[str] = mapped_column(String(50), index=True)
     entity_id: Mapped[int | None] = mapped_column(Integer)
     object_id: Mapped[int | None] = mapped_column(ForeignKey("objects.id"), index=True)
+    deal_id: Mapped[int | None] = mapped_column(ForeignKey("deals.id"), index=True)
     details: Mapped[str | None] = mapped_column(Text)
     ip_address: Mapped[str | None] = mapped_column(String(45))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

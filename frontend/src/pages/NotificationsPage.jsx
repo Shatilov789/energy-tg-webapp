@@ -21,7 +21,7 @@ const TYPE_CONFIG = {
     icon: IconAlertCircle,
     bgColor: 'rgba(231,76,60,.12)',
     color: 'var(--err)',
-    actionLabel: 'Заполнить сейчас',
+    actionLabel: 'Заповнити зараз',
     actionColor: 'var(--err)',
     unreadCls: 'ni-unread-error',
     dotColor: 'var(--err)',
@@ -30,7 +30,7 @@ const TYPE_CONFIG = {
     icon: IconMessage,
     bgColor: 'rgba(59,139,235,.12)',
     color: 'var(--acc2)',
-    actionLabel: 'Посмотреть',
+    actionLabel: 'Переглянути',
     actionColor: 'var(--acc2)',
     unreadCls: 'ni-unread-info',
     dotColor: 'var(--acc2)',
@@ -48,10 +48,37 @@ const TYPE_CONFIG = {
     icon: IconMessageCircle,
     bgColor: 'rgba(59,139,235,.12)',
     color: 'var(--acc2)',
-    actionLabel: 'Посмотреть',
+    actionLabel: 'Переглянути',
     actionColor: 'var(--acc2)',
     unreadCls: 'ni-unread-info',
     dotColor: 'var(--acc2)',
+  },
+  worker_assigned: {
+    icon: IconShare,
+    bgColor: 'rgba(61,190,122,.12)',
+    color: 'var(--ok)',
+    actionLabel: 'Відкрити',
+    actionColor: 'var(--ok)',
+    unreadCls: 'ni-unread-success',
+    dotColor: 'var(--ok)',
+  },
+  worker_removed: {
+    icon: IconAlertTriangle,
+    bgColor: 'rgba(232,168,56,.12)',
+    color: 'var(--warn)',
+    actionLabel: null,
+    actionColor: null,
+    unreadCls: '',
+    dotColor: 'var(--mu)',
+  },
+  object_completed: {
+    icon: IconChecks,
+    bgColor: 'rgba(61,190,122,.12)',
+    color: 'var(--ok)',
+    actionLabel: 'Переглянути',
+    actionColor: 'var(--ok)',
+    unreadCls: 'ni-unread-success',
+    dotColor: 'var(--ok)',
   },
 };
 
@@ -113,18 +140,18 @@ export default function NotificationsPage() {
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      return `Сегодня в ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+      return `Сьогодні о ${d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}`;
     }
     if (diffDays === 1) {
-      return `Вчера в ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+      return `Вчора о ${d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}`;
     }
     if (diffDays < 7) {
-      return `${diffDays} дн. назад`;
+      return `${diffDays} дн. тому`;
     }
-    return d.toLocaleDateString('ru-RU');
+    return d.toLocaleDateString('uk-UA');
   }
 
-  if (loading) return <div className="loading">{showLoadingText ? 'Загрузка...' : ''}</div>;
+  if (loading) return <div className="loading">{showLoadingText ? 'Завантаження...' : ''}</div>;
 
   const unread = notifications.filter(n => !n.is_read).length;
 
@@ -132,13 +159,13 @@ export default function NotificationsPage() {
     <div className="page">
       <div className="tbar">
         <div style={{ flex: 1 }}>
-          <h1>Оповещения</h1>
+          <h1>Сповіщення</h1>
           {unread > 0 && (
-            <div className="tbar-s">{unread} непрочитанных</div>
+            <div className="tbar-s">{unread} непрочитаних</div>
           )}
         </div>
         {unread > 0 && (
-          <button className="ib" onClick={markAllRead} title="Прочитать все">
+          <button className="ib" onClick={markAllRead} title="Прочитати всі">
             <IconChecks size={18} />
           </button>
         )}
@@ -148,7 +175,7 @@ export default function NotificationsPage() {
         {notifications.length === 0 ? (
           <div className="empty-state">
             <IconBellOff size={40} />
-            Оповещений пока нет
+            Сповіщень поки немає
           </div>
         ) : (
           notifications.map(n => {
@@ -164,7 +191,7 @@ export default function NotificationsPage() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="ni-t">
-                    {n.title || 'Уведомление'}
+                    {n.title || 'Сповіщення'}
                     {!n.is_read && (
                       <span className="ni-dot" style={{ background: cfg.dotColor }} />
                     )}
@@ -209,21 +236,21 @@ export default function NotificationsPage() {
       <div className="tabbar">
         <button className="tab" onClick={() => navigate('/')}>
           <IconList size={22} />
-          <span>Объекты</span>
+          <span>Обʼєкти</span>
         </button>
         <button className="tab" onClick={() => navigate('/objects')}>
           <IconPlus size={22} />
-          <span>Создать</span>
+          <span>Створити</span>
         </button>
         <button className="tab on">
           <IconBell size={22} />
-          <span>Оповещения</span>
+          <span>Сповіщення</span>
           <div className="tab-indicator" />
         </button>
         {isAdmin && (
           <button className="tab" onClick={() => navigate('/admin')}>
             <IconLayoutDashboard size={22} />
-            <span>Админ</span>
+            <span>Адмін</span>
           </button>
         )}
       </div>
