@@ -22,9 +22,7 @@ class Scenario(SoftDeleteMixin, Base):
     )
 
     # Relationships
-    steps: Mapped[list["ScenarioStep"]] = relationship(
-        back_populates="scenario", order_by="ScenarioStep.step_number"
-    )
+    steps: Mapped[list["ScenarioStep"]] = relationship(back_populates="scenario", order_by="ScenarioStep.step_number")
     objects: Mapped[list["Object"]] = relationship(back_populates="scenario")
 
     def __repr__(self) -> str:

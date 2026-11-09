@@ -4,7 +4,8 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    app_env: str = "development"
+    # Fails safe: the dev auth bypass stays off unless development is requested explicitly.
+    app_env: str = "production"
     app_secret_key: str = "change-me-in-production"
     app_host: str = "0.0.0.0"
     app_port: int = 8000
@@ -16,7 +17,13 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str = ""
     admin_telegram_id: int = 0
+    # How long a Telegram Web App launch stays valid, measured from its auth_date.
+    telegram_auth_max_age_seconds: int = 86400
     webapp_url: str = ""  # Telegram Web App URL for the button in push notifications
+
+    # Comma-separated origins allowed to call the API from another site.
+    # Stays empty when the web app and the API share one origin.
+    cors_origins: str = ""
 
     # Reminder: days before sending notification about unfilled step
     reminder_delay_days: int = 2
@@ -27,6 +34,12 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.app_env == "development"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        if self.is_development:
+            return ["*"]
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
 settings = Settings()

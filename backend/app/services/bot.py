@@ -32,9 +32,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     async with async_session() as session:
-        db_user = (
-            await session.execute(select(User).where(User.telegram_id == user.id))
-        ).scalar_one_or_none()
+        db_user = (await session.execute(select(User).where(User.telegram_id == user.id))).scalar_one_or_none()
 
     if db_user and db_user.is_active:
         await update.message.reply_text(
@@ -51,9 +49,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"• Прізвище: {user.last_name or '—'}\n"
         f"• Username: @{user.username}\n\n"
         f"Ви ще не маєте доступу. Натисніть кнопку щоб запросити його в адміністратора.",
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("🔑 Запросити доступ", callback_data="request_access")
-        ]]),
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("🔑 Запросити доступ", callback_data="request_access")]]
+        ),
     )
 
 
@@ -86,9 +84,9 @@ async def on_request_access(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 f"• Ім'я: {user.first_name} {user.last_name or ''}\n"
                 f"• Username: @{user.username}"
             ),
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("✅ Дозволити доступ", callback_data=f"grant_access:{user.id}")
-            ]]),
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("✅ Дозволити доступ", callback_data=f"grant_access:{user.id}")]]
+            ),
         )
     except Exception as e:
         logger.error("Failed to notify the admin: %s", e)
@@ -113,9 +111,7 @@ async def on_grant_access(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     username = candidate.get("username") or None
 
     async with async_session() as session:
-        db_user = (
-            await session.execute(select(User).where(User.telegram_id == tg_id))
-        ).scalar_one_or_none()
+        db_user = (await session.execute(select(User).where(User.telegram_id == tg_id))).scalar_one_or_none()
         if db_user:
             db_user.is_active = True
         else:
@@ -155,9 +151,9 @@ async def send_telegram_notification(telegram_id: int, text: str) -> None:
     try:
         kwargs: dict = {"chat_id": telegram_id, "text": text}
         if settings.webapp_url:
-            kwargs["reply_markup"] = InlineKeyboardMarkup([[
-                InlineKeyboardButton("Відкрити Energy CRM →", url=settings.webapp_url)
-            ]])
+            kwargs["reply_markup"] = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Відкрити Energy CRM →", url=settings.webapp_url)]]
+            )
         await bot_app.bot.send_message(**kwargs)
     except Exception as e:
         logger.warning("Telegram push not sent (user tg_id=%d): %s", telegram_id, e)

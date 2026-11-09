@@ -28,9 +28,7 @@ async def list_scenarios(
 ):
     """List all active scenarios."""
     result = await db.execute(
-        select(Scenario)
-        .where(Scenario.is_active.is_(True), Scenario.is_deleted.is_(False))
-        .order_by(Scenario.id)
+        select(Scenario).where(Scenario.is_active.is_(True), Scenario.is_deleted.is_(False)).order_by(Scenario.id)
     )
     return result.scalars().all()
 
@@ -42,9 +40,7 @@ async def get_scenario(
     db: AsyncSession = Depends(get_db),
 ):
     """Get scenario with all steps."""
-    result = await db.execute(
-        select(Scenario).where(Scenario.id == scenario_id).options(selectinload(Scenario.steps))
-    )
+    result = await db.execute(select(Scenario).where(Scenario.id == scenario_id).options(selectinload(Scenario.steps)))
     scenario = result.scalar_one_or_none()
     if not scenario:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сценарій не знайдено")
@@ -64,7 +60,12 @@ async def create_scenario(
     return scenario
 
 
-@router.post("/{scenario_id}/steps", response_model=ScenarioStepResponse, status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD)
+@router.post(
+    "/{scenario_id}/steps",
+    response_model=ScenarioStepResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=RESPONSES_CRUD,
+)
 async def add_step(
     scenario_id: int,
     data: ScenarioStepCreate,

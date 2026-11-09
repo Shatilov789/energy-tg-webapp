@@ -23,7 +23,6 @@ from backend.app.models.notification import Notification, NotificationType
 from backend.app.models.scenario import Scenario, ScenarioStep
 from backend.app.models.user import User
 
-
 # ==================== User management ====================
 
 
@@ -162,9 +161,7 @@ async def _create_answer(client: AsyncClient, db: AsyncSession, worker: User) ->
 
 
 @pytest.mark.asyncio
-async def test_admin_comment_on_answer(
-    client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession
-):
+async def test_admin_comment_on_answer(client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession):
     """An admin comments on a worker's answer and the comment is saved."""
     answer_id, _ = await _create_answer(client, db, worker_user)
 
@@ -218,9 +215,7 @@ async def test_comment_on_nonexistent_answer(client: AsyncClient, admin_user: Us
 
 
 @pytest.mark.asyncio
-async def test_unlock_creates_notification(
-    client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession
-):
+async def test_unlock_creates_notification(client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession):
     """Unlocking creates a STEP_UNLOCKED notification, so the worker knows they can edit."""
     answer_id, worker_id = await _create_answer(client, db, worker_user)
 

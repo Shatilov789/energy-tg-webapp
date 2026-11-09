@@ -16,12 +16,12 @@ from backend.app.models.notification import NotificationType
 from backend.app.models.object import Object, ObjectCriticality, ObjectWorker
 from backend.app.models.scenario import Scenario
 from backend.app.models.user import User
-from backend.app.services.audit import log_action
-from backend.app.services.notifications import notify
 from backend.app.schemas.comment import CommentCreate, CommentResponse
 from backend.app.schemas.error import RESPONSES_AUTH, RESPONSES_CRUD, RESPONSES_CRUD_CONFLICT
 from backend.app.schemas.object import AdminObjectResponse
 from backend.app.schemas.user import UserCreate, UserResponse
+from backend.app.services.audit import log_action
+from backend.app.services.notifications import notify
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +37,13 @@ async def list_users(
     db: AsyncSession = Depends(get_db),
 ):
     """List all registered users."""
-    result = await db.execute(
-        select(User).where(User.is_deleted.is_(False)).order_by(User.created_at.desc())
-    )
+    result = await db.execute(select(User).where(User.is_deleted.is_(False)).order_by(User.created_at.desc()))
     return result.scalars().all()
 
 
-@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD_CONFLICT)
+@router.post(
+    "/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD_CONFLICT
+)
 async def create_user(
     data: UserCreate,
     admin: User = Depends(require_admin),
@@ -64,8 +64,11 @@ async def create_user(
     db.add(user)
     await db.flush()
     await log_action(
-        db, user_id=admin.id, action=AuditAction.CREATE,
-        entity_type="user", entity_id=user.id,
+        db,
+        user_id=admin.id,
+        action=AuditAction.CREATE,
+        entity_type="user",
+        entity_id=user.id,
         details={"telegram_id": data.telegram_id, "role": data.role.value},
     )
     return user
@@ -85,8 +88,11 @@ async def toggle_user_active(
     user.is_active = not user.is_active
     await db.flush()
     await log_action(
-        db, user_id=admin.id, action=AuditAction.STATUS_CHANGE,
-        entity_type="user", entity_id=user_id,
+        db,
+        user_id=admin.id,
+        action=AuditAction.STATUS_CHANGE,
+        entity_type="user",
+        entity_id=user_id,
         details={"is_active": user.is_active},
     )
     return user
@@ -121,7 +127,9 @@ async def list_all_objects(
 # --- Responsible workers ---
 
 
-@router.post("/objects/{object_id}/workers/{user_id}", status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD_CONFLICT)
+@router.post(
+    "/objects/{object_id}/workers/{user_id}", status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD_CONFLICT
+)
 async def add_worker(
     object_id: int,
     user_id: int,
@@ -154,8 +162,12 @@ async def add_worker(
         object_id=object_id,
     )
     await log_action(
-        db, user_id=admin.id, action=AuditAction.SHARE,
-        entity_type="object", entity_id=object_id, object_id=object_id,
+        db,
+        user_id=admin.id,
+        action=AuditAction.SHARE,
+        entity_type="object",
+        entity_id=object_id,
+        object_id=object_id,
         details={"added_worker": user_id},
     )
     return {"detail": "Worker added"}
@@ -190,8 +202,12 @@ async def remove_worker(
         object_id=object_id,
     )
     await log_action(
-        db, user_id=admin.id, action=AuditAction.UPDATE,
-        entity_type="object", entity_id=object_id, object_id=object_id,
+        db,
+        user_id=admin.id,
+        action=AuditAction.UPDATE,
+        entity_type="object",
+        entity_id=object_id,
+        object_id=object_id,
         details={"removed_worker": user_id},
     )
     return {"detail": "Worker removed"}
@@ -200,7 +216,12 @@ async def remove_worker(
 # --- Comments ---
 
 
-@router.post("/answers/{answer_id}/comment", response_model=CommentResponse, status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD)
+@router.post(
+    "/answers/{answer_id}/comment",
+    response_model=CommentResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=RESPONSES_CRUD,
+)
 async def add_comment(
     answer_id: int,
     data: CommentCreate,
@@ -221,14 +242,16 @@ async def add_comment(
     db.add(comment)
 
     # System event in the step's discussion thread
-    db.add(StepComment(
-        object_id=answer.object_id,
-        step_id=answer.step_id,
-        author_id=admin.id,
-        is_system_event=True,
-        event_type="admin_comment",
-        comment_text="Адміністратор залишив коментар",
-    ))
+    db.add(
+        StepComment(
+            object_id=answer.object_id,
+            step_id=answer.step_id,
+            author_id=admin.id,
+            is_system_event=True,
+            event_type="admin_comment",
+            comment_text="Адміністратор залишив коментар",
+        )
+    )
 
     await notify(
         db,
@@ -242,8 +265,12 @@ async def add_comment(
     )
 
     await log_action(
-        db, user_id=admin.id, action=AuditAction.COMMENT,
-        entity_type="answer", entity_id=answer_id, object_id=answer.object_id,
+        db,
+        user_id=admin.id,
+        action=AuditAction.COMMENT,
+        entity_type="answer",
+        entity_id=answer_id,
+        object_id=answer.object_id,
     )
     return comment
 
@@ -270,14 +297,16 @@ async def lock_answer(
     answer.is_locked = True
     await db.flush()
 
-    db.add(StepComment(
-        object_id=answer.object_id,
-        step_id=answer.step_id,
-        author_id=None,
-        is_system_event=True,
-        event_type="lock",
-        comment_text="Адміністратор заблокував відповідь",
-    ))
+    db.add(
+        StepComment(
+            object_id=answer.object_id,
+            step_id=answer.step_id,
+            author_id=None,
+            is_system_event=True,
+            event_type="lock",
+            comment_text="Адміністратор заблокував відповідь",
+        )
+    )
 
     await notify(
         db,
@@ -291,8 +320,12 @@ async def lock_answer(
     )
 
     await log_action(
-        db, user_id=admin.id, action=AuditAction.UPDATE,
-        entity_type="answer", entity_id=answer_id, object_id=answer.object_id,
+        db,
+        user_id=admin.id,
+        action=AuditAction.UPDATE,
+        entity_type="answer",
+        entity_id=answer_id,
+        object_id=answer.object_id,
         details={"locked": True},
     )
     return {"detail": "Answer locked"}
@@ -318,14 +351,16 @@ async def unlock_answer(
     await db.flush()
 
     # System event in the step's discussion thread
-    db.add(StepComment(
-        object_id=answer.object_id,
-        step_id=answer.step_id,
-        author_id=None,
-        is_system_event=True,
-        event_type="unlock",
-        comment_text="Адміністратор розблокував відповідь",
-    ))
+    db.add(
+        StepComment(
+            object_id=answer.object_id,
+            step_id=answer.step_id,
+            author_id=None,
+            is_system_event=True,
+            event_type="unlock",
+            comment_text="Адміністратор розблокував відповідь",
+        )
+    )
 
     await notify(
         db,
@@ -339,7 +374,11 @@ async def unlock_answer(
     )
 
     await log_action(
-        db, user_id=admin.id, action=AuditAction.UNLOCK,
-        entity_type="answer", entity_id=answer_id, object_id=answer.object_id,
+        db,
+        user_id=admin.id,
+        action=AuditAction.UNLOCK,
+        entity_type="answer",
+        entity_id=answer_id,
+        object_id=answer.object_id,
     )
     return {"detail": "Answer unlocked"}

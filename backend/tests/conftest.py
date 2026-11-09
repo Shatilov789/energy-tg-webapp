@@ -14,17 +14,21 @@ Dependencies:
 """
 
 import asyncio
-from typing import AsyncGenerator
+import os
+from collections.abc import AsyncGenerator
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from backend.app.db.base import Base
-from backend.app.db.session import get_db
-from backend.app.main import app
-from backend.app.models.user import User, UserRole
+# Must be set before the app is imported: tests sign in through the dev-only header.
+os.environ["APP_ENV"] = "development"
+
+from backend.app.db.base import Base  # noqa: E402
+from backend.app.db.session import get_db  # noqa: E402
+from backend.app.main import app  # noqa: E402
+from backend.app.models.user import User, UserRole  # noqa: E402
 
 # Recreated for every test, so each one starts from an empty database.
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
@@ -69,6 +73,7 @@ async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     3. base_url="http://test" is a placeholder; nothing leaves the process.
     4. Clears the overrides after the test.
     """
+
     async def override_get_db():
         yield db
 

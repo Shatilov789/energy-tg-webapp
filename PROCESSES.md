@@ -235,7 +235,7 @@
 
 **Аутентификация:**
 - Prod: Telegram `initData` в заголовке `X-Telegram-Init-Data`
-- Dev: заголовок `X-Dev-Telegram-Id: 567835393` (admin) или `987654321` (worker)
+- Dev: заголовок `X-Dev-Telegram-Id: <ADMIN_TELEGRAM_ID>` (admin) или `987654321` (worker)
 
 **Audit log принцип:**
 - Все действия вызывают `log_action(db, user_id=..., action=..., entity_type=..., entity_id=..., object_id=...)`

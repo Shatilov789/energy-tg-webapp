@@ -3,8 +3,10 @@
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.models.deal import Stage
 from backend.app.models.user import User
 from backend.app.processes.catalog import seed_process
 from backend.app.processes.definition import ProcessDefinition
@@ -200,3 +202,62 @@ async def test_comment_is_saved_on_completed_stage(client, worker_user, processe
 async def test_deal_endpoints_require_auth(client):
     response = await client.get("/api/deals/")
     assert response.status_code == 401
+
+
+def _catalog(*stages) -> ProcessDefinition:
+    transitions = {stage[1]: {"terminal": "completed"} for stage in stages}
+    return ProcessDefinition(name="Sync", stages=list(stages), transitions=transitions)
+
+
+async def _stored_stages(db: AsyncSession) -> dict[str, Stage]:
+    result = await db.execute(
+        select(Stage).where(Stage.parent_process == "Sync").execution_options(populate_existing=True)
+    )
+    return {stage.stage_key: stage for stage in result.scalars()}
+
+
+@pytest.mark.asyncio
+async def test_catalog_sync_updates_changed_stage_and_adds_new_one(db: AsyncSession):
+    await seed_process(db, _catalog(("1", "s_a", "Old name", "Sales", False)))
+    await seed_process(db, _catalog(("1", "s_a", "New name", "РМ", False), ("2", "s_b", "Added", "РМ", False)))
+
+    stages = await _stored_stages(db)
+    assert stages["s_a"].name == "New name"
+    assert stages["s_a"].role_owner == "РМ"
+    assert stages["s_b"].order_index == 2
+
+
+@pytest.mark.asyncio
+async def test_catalog_sync_is_idempotent_and_keeps_removed_stage(db: AsyncSession):
+    full = _catalog(("1", "s_a", "A", "Sales", False), ("2", "s_b", "B", "Sales", False))
+    await seed_process(db, full)
+    await seed_process(db, full)
+    await seed_process(db, _catalog(("1", "s_b", "B", "Sales", False)))
+
+    stages = await _stored_stages(db)
+    assert set(stages) == {"s_a", "s_b"}
+
+
+@pytest.mark.asyncio
+async def test_new_deal_ignores_stage_removed_from_definition(client, worker_user, db, monkeypatch):
+    await seed_process(db, _catalog(("1", "s_a", "A", "Sales", False), ("2", "s_b", "B", "Sales", False)))
+    current = _catalog(("1", "s_b", "B", "Sales", False))
+    await seed_process(db, current)
+    monkeypatch.setitem(PROCESSES, current.name, current)
+
+    deal = await _create(client, worker_user, "Sync")
+
+    assert _active_names(deal) == ["B"]
+
+
+@pytest.mark.asyncio
+async def test_deal_on_removed_stage_gets_clear_conflict(client, worker_user, db, monkeypatch):
+    original = _catalog(("1", "s_a", "A", "Sales", False))
+    await seed_process(db, original)
+    monkeypatch.setitem(PROCESSES, original.name, original)
+    deal = await _create(client, worker_user, "Sync")
+
+    monkeypatch.setitem(PROCESSES, original.name, _catalog(("1", "s_b", "B", "Sales", False)))
+    response = await _advance(client, worker_user, deal["id"])
+
+    assert response.status_code == 409

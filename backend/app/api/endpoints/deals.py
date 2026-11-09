@@ -43,6 +43,8 @@ def _to_http_error(exc: engine.WorkflowError) -> HTTPException:
             )
         case engine.StageDecisionRequired():
             return HTTPException(status.HTTP_409_CONFLICT, "Цей етап потребує рішення")
+        case engine.StageNoLongerDefined():
+            return HTTPException(status.HTTP_409_CONFLICT, "Цього етапу більше немає в процесі")
     raise exc
 
 

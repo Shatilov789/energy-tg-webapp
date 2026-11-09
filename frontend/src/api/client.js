@@ -11,8 +11,11 @@ function getAuthHeaders() {
   if (tg?.initData) {
     return { 'X-Telegram-Init-Data': tg.initData };
   }
-  // Dev fallback — matches ADMIN_TELEGRAM_ID seeded in .env
-  return { 'X-Dev-Telegram-Id': '567835393' };
+  // Outside Telegram, local development signs in as the seeded admin.
+  if (import.meta.env.DEV) {
+    return { 'X-Dev-Telegram-Id': import.meta.env.VITE_DEV_TELEGRAM_ID ?? '123456789' };
+  }
+  return {};
 }
 
 async function request(path, options = {}) {

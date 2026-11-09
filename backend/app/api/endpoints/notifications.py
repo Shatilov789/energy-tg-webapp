@@ -36,8 +36,7 @@ async def unread_count(
 ):
     """Get count of unread notifications."""
     result = await db.execute(
-        select(Notification)
-        .where(Notification.user_id == current_user.id, Notification.is_read.is_(False))
+        select(Notification).where(Notification.user_id == current_user.id, Notification.is_read.is_(False))
     )
     return {"count": len(result.scalars().all())}
 

@@ -1,7 +1,7 @@
 """Background task scheduler — reminders for unfilled steps."""
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import func, select
@@ -21,7 +21,7 @@ scheduler = AsyncIOScheduler()
 
 async def check_unfilled_steps():
     """Find objects with unfilled steps past the reminder threshold and send notifications."""
-    threshold = datetime.now(timezone.utc) - timedelta(days=settings.reminder_delay_days)
+    threshold = datetime.now(UTC) - timedelta(days=settings.reminder_delay_days)
 
     async with async_session() as db:
         # Get in-progress objects updated before threshold
@@ -54,7 +54,7 @@ async def check_unfilled_steps():
                 next_step = answered_steps + 1
 
                 # Avoid duplicate reminders: check if one already sent today
-                today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+                today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
                 existing = await db.execute(
                     select(Notification).where(
                         Notification.user_id == obj.created_by_id,

@@ -16,18 +16,28 @@ from backend.app.models.notification import NotificationType
 from backend.app.models.object import Object, ObjectStatus, ObjectWorker
 from backend.app.models.scenario import Scenario
 from backend.app.models.user import User, UserRole
-from backend.app.services.audit import log_action
-from backend.app.services.notifications import notify
 from backend.app.schemas.answer import AnswerCreate, AnswerResponse
 from backend.app.schemas.error import RESPONSES_CRUD, RESPONSES_CRUD_CONFLICT
-from backend.app.schemas.step_comment import StepCommentCreate, StepCommentResponse, StepStatusNoteCreate, StepStatusNoteResponse
+from backend.app.schemas.step_comment import (
+    StepCommentCreate,
+    StepCommentResponse,
+    StepStatusNoteCreate,
+    StepStatusNoteResponse,
+)
+from backend.app.services.audit import log_action
+from backend.app.services.notifications import notify
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/objects/{object_id}/steps", tags=["steps"])
 
 
-@router.post("/{step_id}/answer", response_model=AnswerResponse, status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD_CONFLICT)
+@router.post(
+    "/{step_id}/answer",
+    response_model=AnswerResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=RESPONSES_CRUD_CONFLICT,
+)
 async def submit_answer(
     object_id: int,
     step_id: int,
@@ -56,8 +66,12 @@ async def submit_answer(
     await db.flush()
 
     await log_action(
-        db, user_id=current_user.id, action=AuditAction.CREATE,
-        entity_type="answer", entity_id=answer.id, object_id=object_id,
+        db,
+        user_id=current_user.id,
+        action=AuditAction.CREATE,
+        entity_type="answer",
+        entity_id=answer.id,
+        object_id=object_id,
         details={"step_id": step_id},
     )
     return await _load_answer(db, answer.id)
@@ -84,15 +98,21 @@ async def update_answer(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Відповідь не знайдено")
 
     if answer.is_locked and current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Відповідь заблоковано — зверніться до адміністратора")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Відповідь заблоковано — зверніться до адміністратора"
+        )
 
     answer.answer_text = data.answer_text
     answer.answered_by_id = current_user.id
     await db.flush()
 
     await log_action(
-        db, user_id=current_user.id, action=AuditAction.UPDATE,
-        entity_type="answer", entity_id=answer.id, object_id=object_id,
+        db,
+        user_id=current_user.id,
+        action=AuditAction.UPDATE,
+        entity_type="answer",
+        entity_id=answer.id,
+        object_id=object_id,
         details={"step_id": step_id},
     )
     return await _load_answer(db, answer.id)
@@ -121,7 +141,12 @@ async def list_step_comments(
     return result.scalars().all()
 
 
-@router.post("/{step_id}/comments", response_model=StepCommentResponse, status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD)
+@router.post(
+    "/{step_id}/comments",
+    response_model=StepCommentResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=RESPONSES_CRUD,
+)
 async def add_step_comment(
     object_id: int,
     step_id: int,
@@ -156,8 +181,12 @@ async def add_step_comment(
         )
 
     await log_action(
-        db, user_id=current_user.id, action=AuditAction.COMMENT,
-        entity_type="step_comment", entity_id=comment.id, object_id=object_id,
+        db,
+        user_id=current_user.id,
+        action=AuditAction.COMMENT,
+        entity_type="step_comment",
+        entity_id=comment.id,
+        object_id=object_id,
         details={"step_id": step_id, "recipient_id": data.recipient_id},
     )
 
@@ -192,7 +221,12 @@ async def list_status_notes(
     return result.scalars().all()
 
 
-@router.post("/{step_id}/status-notes", response_model=StepStatusNoteResponse, status_code=status.HTTP_201_CREATED, responses=RESPONSES_CRUD)
+@router.post(
+    "/{step_id}/status-notes",
+    response_model=StepStatusNoteResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=RESPONSES_CRUD,
+)
 async def add_status_note(
     object_id: int,
     step_id: int,
@@ -212,7 +246,9 @@ async def add_status_note(
             )
         )
         if not worker_result.scalar_one_or_none():
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Додавати статус можуть лише відповідальні співробітники")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Додавати статус можуть лише відповідальні співробітники"
+            )
 
     # Block if step is locked (unless admin)
     answer_result = await db.execute(
@@ -255,17 +291,19 @@ async def add_status_note(
         )
         obj = obj_res.scalar_one_or_none()
         if obj and obj.status != ObjectStatus.COMPLETED:
-            count_res = await db.execute(
-                select(func.count(ObjectAnswer.id)).where(ObjectAnswer.object_id == object_id)
-            )
+            count_res = await db.execute(select(func.count(ObjectAnswer.id)).where(ObjectAnswer.object_id == object_id))
             answered_count = count_res.scalar()
             total_steps = len(obj.scenario.steps) if obj.scenario else 0
             if total_steps > 0 and answered_count >= total_steps:
                 obj.status = ObjectStatus.COMPLETED
                 await db.flush()
                 await log_action(
-                    db, user_id=current_user.id, action=AuditAction.STATUS_CHANGE,
-                    entity_type="object", entity_id=object_id, object_id=object_id,
+                    db,
+                    user_id=current_user.id,
+                    action=AuditAction.STATUS_CHANGE,
+                    entity_type="object",
+                    entity_id=object_id,
+                    object_id=object_id,
                     details={"status": "completed"},
                 )
                 for worker_link in obj.workers:
@@ -280,15 +318,17 @@ async def add_status_note(
                     )
 
     await log_action(
-        db, user_id=current_user.id, action=AuditAction.CREATE,
-        entity_type="step_status_note", entity_id=note.id, object_id=object_id,
+        db,
+        user_id=current_user.id,
+        action=AuditAction.CREATE,
+        entity_type="step_status_note",
+        entity_id=note.id,
+        object_id=object_id,
         details={"step_id": step_id},
     )
 
     result = await db.execute(
-        select(StepStatusNote)
-        .where(StepStatusNote.id == note.id)
-        .options(selectinload(StepStatusNote.author))
+        select(StepStatusNote).where(StepStatusNote.id == note.id).options(selectinload(StepStatusNote.author))
     )
     return result.scalar_one()
 

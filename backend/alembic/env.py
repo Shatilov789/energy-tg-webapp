@@ -6,10 +6,9 @@ from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
-
 # Import all models so metadata picks them up
 import backend.app.models  # noqa: F401
+from alembic import context
 from backend.app.core.config import settings
 from backend.app.db.base import Base
 

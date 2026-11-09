@@ -58,6 +58,10 @@ class StageDecisionRequired(WorkflowError):
     pass
 
 
+class StageNoLongerDefined(WorkflowError):
+    """The deal sits on a stage that was removed from its process definition."""
+
+
 def get_process(process_type: str) -> ProcessDefinition:
     process = PROCESSES.get(process_type)
     if not process:
@@ -99,8 +103,9 @@ async def start_deal(
 ) -> Deal:
     """Register a new deal, in progress at the first stage of its process."""
     process = get_process(process_type)
+    first_stage_key = process.stages[0][1]
     first_stage = (
-        await db.execute(select(Stage).where(Stage.parent_process == process.name).order_by(Stage.order_index).limit(1))
+        await db.execute(select(Stage).where(Stage.parent_process == process.name, Stage.stage_key == first_stage_key))
     ).scalar_one_or_none()
     if not first_stage:
         raise CatalogNotSeeded(process.name)
@@ -163,6 +168,9 @@ async def advance_deal(
         raise StageDecisionRequired(current.stage.stage_key)
 
     process = get_process(deal.process_type)
+    if current.stage.stage_key not in process.transitions:
+        raise StageNoLongerDefined(current.stage.stage_key)
+
     try:
         next_keys = process.resolve_next(current.stage.stage_key, decision)
     except DecisionRequired as exc:

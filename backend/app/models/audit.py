@@ -35,9 +35,7 @@ class AuditLog(Base):
     ip_address: Mapped[str | None] = mapped_column(String(45))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
 
-    user: Mapped["User | None"] = relationship(
-        "User", foreign_keys="[AuditLog.user_id]", viewonly=True
-    )
+    user: Mapped["User | None"] = relationship("User", foreign_keys="[AuditLog.user_id]", viewonly=True)
 
     def __repr__(self) -> str:
         return f"<AuditLog {self.id} {self.action.value} {self.entity_type}:{self.entity_id}>"

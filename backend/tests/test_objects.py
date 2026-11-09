@@ -174,9 +174,7 @@ async def test_object_access_forbidden_for_other_worker(
 
 
 @pytest.mark.asyncio
-async def test_admin_can_see_any_object(
-    client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession
-):
+async def test_admin_can_see_any_object(client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession):
     """An admin can open any worker's object, which review and commenting rely on."""
     scenario = await _create_scenario_with_steps(db)
 

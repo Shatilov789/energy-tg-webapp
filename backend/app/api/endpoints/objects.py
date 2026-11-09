@@ -14,10 +14,16 @@ from backend.app.models.audit import AuditAction, AuditLog
 from backend.app.models.object import Object, ObjectCriticality, ObjectWorker
 from backend.app.models.scenario import Scenario
 from backend.app.models.user import User
-from backend.app.services.audit import log_action
 from backend.app.schemas.audit import AuditLogEntryResponse
 from backend.app.schemas.error import RESPONSES_AUTH, RESPONSES_CRUD, RESPONSES_CRUD_CONFLICT
-from backend.app.schemas.object import ObjectCreate, ObjectDetailResponse, ObjectListItemResponse, ObjectResponse, ObjectUpdateCriticality
+from backend.app.schemas.object import (
+    ObjectCreate,
+    ObjectDetailResponse,
+    ObjectListItemResponse,
+    ObjectResponse,
+    ObjectUpdateCriticality,
+)
+from backend.app.services.audit import log_action
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +105,12 @@ async def create_object(
     await db.flush()
 
     await log_action(
-        db, user_id=current_user.id, action=AuditAction.CREATE,
-        entity_type="object", entity_id=obj.id, object_id=obj.id,
+        db,
+        user_id=current_user.id,
+        action=AuditAction.CREATE,
+        entity_type="object",
+        entity_id=obj.id,
+        object_id=obj.id,
         details={"name": data.name, "scenario_id": data.scenario_id},
     )
     return obj
@@ -119,8 +129,12 @@ async def update_criticality(
     obj.criticality = data.criticality
     await db.flush()
     await log_action(
-        db, user_id=current_user.id, action=AuditAction.CRITICALITY_CHANGE,
-        entity_type="object", entity_id=object_id, object_id=object_id,
+        db,
+        user_id=current_user.id,
+        action=AuditAction.CRITICALITY_CHANGE,
+        entity_type="object",
+        entity_id=object_id,
+        object_id=object_id,
         details={"from": old_val.value, "to": data.criticality.value},
     )
     await db.refresh(obj)
@@ -153,7 +167,7 @@ async def share_object(
     db: AsyncSession = Depends(get_db),
 ):
     """Share object with another worker."""
-    obj = await _get_object_with_access(object_id, current_user, db)
+    await _get_object_with_access(object_id, current_user, db)
 
     existing = await db.execute(
         select(ObjectWorker).where(ObjectWorker.object_id == object_id, ObjectWorker.user_id == user_id)
@@ -164,8 +178,12 @@ async def share_object(
     db.add(ObjectWorker(object_id=object_id, user_id=user_id))
     await db.flush()
     await log_action(
-        db, user_id=current_user.id, action=AuditAction.SHARE,
-        entity_type="object", entity_id=object_id, object_id=object_id,
+        db,
+        user_id=current_user.id,
+        action=AuditAction.SHARE,
+        entity_type="object",
+        entity_id=object_id,
+        object_id=object_id,
         details={"shared_with_user_id": user_id},
     )
     return {"detail": "Object shared"}
@@ -189,6 +207,7 @@ async def _get_object_with_access(object_id: int, user: User, db: AsyncSession) 
 
     has_access = obj.created_by_id == user.id or any(w.user_id == user.id for w in obj.workers)
     from backend.app.models.user import UserRole
+
     if user.role == UserRole.ADMIN:
         has_access = True
 

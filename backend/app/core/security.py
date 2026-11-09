@@ -3,6 +3,7 @@
 import hashlib
 import hmac
 import json
+import time
 from urllib.parse import parse_qs
 
 from fastapi import Depends, HTTPException, Request, status
@@ -19,7 +20,8 @@ def validate_telegram_init_data(init_data: str) -> dict | None:
     if not settings.telegram_bot_token:
         return None
 
-    parsed = parse_qs(init_data)
+    # Blank values are part of the signed payload, so they must be kept.
+    parsed = parse_qs(init_data, keep_blank_values=True)
     received_hash = parsed.get("hash", [None])[0]
     if not received_hash:
         return None
@@ -34,6 +36,11 @@ def validate_telegram_init_data(init_data: str) -> dict | None:
     computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(computed_hash, received_hash):
+        return None
+
+    # A valid signature never expires by itself, so a captured payload must age out here.
+    auth_date = parsed.get("auth_date", [""])[0]
+    if not auth_date.isdigit() or time.time() - int(auth_date) > settings.telegram_auth_max_age_seconds:
         return None
 
     user_data = parsed.get("user", [None])[0]

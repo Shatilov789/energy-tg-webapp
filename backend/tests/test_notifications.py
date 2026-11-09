@@ -115,9 +115,7 @@ async def test_mark_all_read(client: AsyncClient, worker_user: User, db: AsyncSe
 
 
 @pytest.mark.asyncio
-async def test_notification_isolation(
-    client: AsyncClient, worker_user: User, second_worker: User, db: AsyncSession
-):
+async def test_notification_isolation(client: AsyncClient, worker_user: User, second_worker: User, db: AsyncSession):
     """Isolation: a notification for worker 1 is invisible to worker 2."""
     db.add(
         Notification(
