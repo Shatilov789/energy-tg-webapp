@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting Energy CRM [%s]", settings.app_env)
+    settings.check_api_runtime()
 
     # In dev mode tables come from the models; everywhere else from `alembic upgrade head`.
     if settings.is_development:

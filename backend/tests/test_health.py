@@ -18,12 +18,14 @@ async def test_health_endpoint(client: AsyncClient):
 
 
 def test_production_requires_bot_token():
-    """Production refuses to start without a bot token; staging may run without one."""
-    from pydantic import ValidationError
+    """The API refuses to start in production without a bot token; staging may run without one.
 
+    Loading the settings never fails on this, so alembic works without the token.
+    """
     from backend.app.core.config import Settings
 
-    with pytest.raises(ValidationError, match="TELEGRAM_BOT_TOKEN"):
-        Settings(_env_file=None, app_env="production", telegram_bot_token="")
-    assert Settings(_env_file=None, app_env="staging", telegram_bot_token="").app_env == "staging"
-    assert Settings(_env_file=None, app_env="production", telegram_bot_token="123:abc").telegram_bot_token
+    production = Settings(_env_file=None, app_env="production", telegram_bot_token="")
+    with pytest.raises(RuntimeError, match="TELEGRAM_BOT_TOKEN"):
+        production.check_api_runtime()
+    Settings(_env_file=None, app_env="staging", telegram_bot_token="").check_api_runtime()
+    Settings(_env_file=None, app_env="production", telegram_bot_token="123:abc").check_api_runtime()
