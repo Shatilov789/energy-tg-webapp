@@ -3,7 +3,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.db.base import Base
@@ -51,6 +51,7 @@ class ObjectWorker(Base):
     """Many-to-many: which workers have access to an object."""
 
     __tablename__ = "object_workers"
+    __table_args__ = (UniqueConstraint("object_id", "user_id", name="uq_object_workers_object_user"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     object_id: Mapped[int] = mapped_column(ForeignKey("objects.id", ondelete="CASCADE"), index=True)

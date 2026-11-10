@@ -4,6 +4,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -45,7 +46,7 @@ async def list_my_objects(
         )
         .options(
             selectinload(Object.scenario).selectinload(Scenario.steps),
-            selectinload(Object.answers),
+            selectinload(Object.answers.and_(ObjectAnswer.is_deleted.is_(False))),
         )
         .distinct()
         .order_by(Object.updated_at.desc())
@@ -176,7 +177,11 @@ async def share_object(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Користувач уже має доступ")
 
     db.add(ObjectWorker(object_id=object_id, user_id=user_id))
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        # Lost a race with a parallel share of the same object.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Користувач уже має доступ") from None
     await log_action(
         db,
         user_id=current_user.id,
@@ -196,8 +201,10 @@ async def _get_object_with_access(object_id: int, user: User, db: AsyncSession) 
         .where(Object.id == object_id)
         .options(
             selectinload(Object.scenario).selectinload(Scenario.steps),
-            selectinload(Object.answers).selectinload(ObjectAnswer.comments),
-            selectinload(Object.answers).selectinload(ObjectAnswer.answered_by_user),
+            selectinload(Object.answers.and_(ObjectAnswer.is_deleted.is_(False))).selectinload(ObjectAnswer.comments),
+            selectinload(Object.answers.and_(ObjectAnswer.is_deleted.is_(False))).selectinload(
+                ObjectAnswer.answered_by_user
+            ),
             selectinload(Object.workers).selectinload(ObjectWorker.user),
         )
     )

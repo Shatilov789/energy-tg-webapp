@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.db.base import Base
@@ -11,6 +11,17 @@ from backend.app.db.mixins import SoftDeleteMixin
 
 class ObjectAnswer(SoftDeleteMixin, Base):
     __tablename__ = "object_answers"
+    # One live answer per step of an object; soft-deleted rows do not count.
+    __table_args__ = (
+        Index(
+            "uq_object_answers_object_step_active",
+            "object_id",
+            "step_id",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+            sqlite_where=text("is_deleted = 0"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     object_id: Mapped[int] = mapped_column(ForeignKey("objects.id", ondelete="CASCADE"), index=True)

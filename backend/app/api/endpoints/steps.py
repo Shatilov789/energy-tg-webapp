@@ -4,6 +4,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -49,7 +50,11 @@ async def submit_answer(
     await _verify_access(object_id, current_user, db)
 
     existing = await db.execute(
-        select(ObjectAnswer).where(ObjectAnswer.object_id == object_id, ObjectAnswer.step_id == step_id)
+        select(ObjectAnswer).where(
+            ObjectAnswer.object_id == object_id,
+            ObjectAnswer.step_id == step_id,
+            ObjectAnswer.is_deleted.is_(False),
+        )
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="На цей крок уже є відповідь")
@@ -63,7 +68,12 @@ async def submit_answer(
         comments=[],
     )
     db.add(answer)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        # A parallel request inserted the answer between the check and the insert;
+        # get_db rolls the session back when the exception leaves the endpoint.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="На цей крок уже є відповідь") from None
 
     await log_action(
         db,
@@ -90,7 +100,11 @@ async def update_answer(
 
     result = await db.execute(
         select(ObjectAnswer)
-        .where(ObjectAnswer.object_id == object_id, ObjectAnswer.step_id == step_id)
+        .where(
+            ObjectAnswer.object_id == object_id,
+            ObjectAnswer.step_id == step_id,
+            ObjectAnswer.is_deleted.is_(False),
+        )
         .options(selectinload(ObjectAnswer.comments))
     )
     answer = result.scalar_one_or_none()
@@ -252,7 +266,11 @@ async def add_status_note(
 
     # Block if step is locked (unless admin)
     answer_result = await db.execute(
-        select(ObjectAnswer).where(ObjectAnswer.object_id == object_id, ObjectAnswer.step_id == step_id)
+        select(ObjectAnswer).where(
+            ObjectAnswer.object_id == object_id,
+            ObjectAnswer.step_id == step_id,
+            ObjectAnswer.is_deleted.is_(False),
+        )
     )
     answer = answer_result.scalar_one_or_none()
     if answer and answer.is_locked and current_user.role != UserRole.ADMIN:

@@ -1,5 +1,6 @@
 """Application configuration loaded from environment variables."""
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -30,6 +31,14 @@ class Settings(BaseSettings):
 
     # extra="ignore": the shared .env also carries variables meant for other containers (POSTGRES_*).
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
+
+    @model_validator(mode="after")
+    def _require_bot_token_in_production(self) -> "Settings":
+        # Without the token the bot is silent and Web App logins cannot be verified,
+        # yet the stack would still report healthy. Fail the start instead.
+        if self.app_env == "production" and not self.telegram_bot_token:
+            raise ValueError("TELEGRAM_BOT_TOKEN is required when APP_ENV=production")
+        return self
 
     @property
     def is_development(self) -> bool:

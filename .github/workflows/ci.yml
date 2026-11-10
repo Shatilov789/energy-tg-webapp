@@ -6,6 +6,10 @@ on:
     branches: [main, test]
   workflow_call:
 
+# The workflow token only needs to read the code.
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint & Format Check

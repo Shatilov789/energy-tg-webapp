@@ -1,10 +1,18 @@
 # The test and production stacks. Both use this file and stay isolated through the project name:
 #   docker compose -p energy-test --env-file .env.deploy -f docker-compose.deploy.yml up -d --build --wait
 
+# Caps the json-file logs so they cannot fill the disk.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
@@ -21,10 +29,12 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    logging: *default-logging
     environment:
       APP_ENV: ${APP_ENV:?}
       APP_SECRET_KEY: ${APP_SECRET_KEY:?}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Optional for staging; the backend refuses to start in production without it.
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
       WEBAPP_URL: ${WEBAPP_URL:-}
@@ -45,6 +55,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
     restart: unless-stopped
+    logging: *default-logging
     ports:
       # Reachable only from the server itself; Caddy adds HTTPS in front.
       - "127.0.0.1:${WEB_PORT:?}:80"

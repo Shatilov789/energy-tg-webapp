@@ -8,8 +8,10 @@ Business rules:
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.models.answer import ObjectAnswer
 from backend.app.models.scenario import Scenario, ScenarioStep
 from backend.app.models.user import User
 
@@ -162,3 +164,31 @@ async def test_update_nonexistent_answer(client: AsyncClient, worker_user: User,
     response = await _edit(client, worker_user, obj_id, step_id, "No answer yet")
 
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_database_rejects_second_live_answer(client: AsyncClient, worker_user: User, db: AsyncSession):
+    """The unique index catches a duplicate that slips past the endpoint check (double tap race)."""
+    obj_id, step_id = await _setup_object(client, db, worker_user)
+    assert (await _answer(client, worker_user, obj_id, step_id)).status_code == 201
+
+    db.add(ObjectAnswer(object_id=obj_id, step_id=step_id, answer_text="Race", answered_by_id=worker_user.id))
+    with pytest.raises(IntegrityError):
+        await db.flush()
+    await db.rollback()
+
+
+@pytest.mark.asyncio
+async def test_soft_deleted_answer_does_not_block_new_one(client: AsyncClient, worker_user: User, db: AsyncSession):
+    """A soft-deleted answer frees the step: a new answer gets 201 and the old one stays hidden."""
+    obj_id, step_id = await _setup_object(client, db, worker_user)
+    first = await _answer(client, worker_user, obj_id, step_id, "Old")
+    old = await db.get(ObjectAnswer, first.json()["id"])
+    old.is_deleted = True
+    await db.commit()
+
+    response = await _answer(client, worker_user, obj_id, step_id, "New")
+    assert response.status_code == 201
+
+    detail = await client.get(f"/api/objects/{obj_id}", headers=_auth(worker_user))
+    assert [a["answer_text"] for a in detail.json()["answers"]] == ["New"]

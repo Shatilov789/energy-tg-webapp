@@ -4,6 +4,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -111,8 +112,10 @@ async def list_all_objects(
         select(Object)
         .options(
             selectinload(Object.scenario).selectinload(Scenario.steps),
-            selectinload(Object.answers).selectinload(ObjectAnswer.comments),
-            selectinload(Object.answers).selectinload(ObjectAnswer.answered_by_user),
+            selectinload(Object.answers.and_(ObjectAnswer.is_deleted.is_(False))).selectinload(ObjectAnswer.comments),
+            selectinload(Object.answers.and_(ObjectAnswer.is_deleted.is_(False))).selectinload(
+                ObjectAnswer.answered_by_user
+            ),
             selectinload(Object.workers).selectinload(ObjectWorker.user),
         )
         .order_by(Object.updated_at.desc())
@@ -152,6 +155,11 @@ async def add_worker(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Користувач уже відповідальний")
 
     db.add(ObjectWorker(object_id=object_id, user_id=user_id))
+    try:
+        await db.flush()
+    except IntegrityError:
+        # Lost a race with a parallel assignment of the same worker.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Користувач уже відповідальний") from None
     await notify(
         db,
         user_id=user_id,
