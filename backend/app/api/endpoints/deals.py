@@ -37,6 +37,8 @@ def _to_http_error(exc: engine.WorkflowError) -> HTTPException:
             return HTTPException(status.HTTP_409_CONFLICT, "Немає етапу в роботі")
         case engine.ProgressNotFound():
             return HTTPException(status.HTTP_404_NOT_FOUND, "Етап не знайдено або він неактивний")
+        case engine.StageAlreadyCompleted():
+            return HTTPException(status.HTTP_409_CONFLICT, "Цей етап уже пройдено")
         case engine.AmbiguousProgress():
             return HTTPException(
                 status.HTTP_409_CONFLICT, f"Кілька етапів у роботі, вкажіть progress_id: {exc.progress_ids}"

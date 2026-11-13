@@ -170,6 +170,28 @@ async def test_unknown_progress_id(client, worker_user, processes):
 
 
 @pytest.mark.asyncio
+async def test_stale_tab_gets_already_completed(client, worker_user, processes):
+    deal = await _create(client, worker_user)
+    first_id = deal["active_stages"][0]["id"]
+    assert (await _advance(client, worker_user, deal["id"], progress_id=first_id)).status_code == 200
+
+    response = await _advance(client, worker_user, deal["id"], progress_id=first_id)
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Цей етап уже пройдено"
+
+
+@pytest.mark.asyncio
+async def test_stale_branch_tab_gets_already_completed(client, worker_user, processes):
+    deal = await _to_fan_out(client, worker_user)
+    left, _ = sorted(deal["active_stages"], key=lambda stage: stage["stage_name"])
+    await _advance(client, worker_user, deal["id"], progress_id=left["id"])
+
+    response = await _advance(client, worker_user, deal["id"], progress_id=left["id"])
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Цей етап уже пройдено"
+
+
+@pytest.mark.asyncio
 async def test_and_join_completes_only_after_last_branch(client, worker_user, processes):
     deal = await _to_fan_out(client, worker_user)
     left, right = sorted(deal["active_stages"], key=lambda stage: stage["stage_name"])

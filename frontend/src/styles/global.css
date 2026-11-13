@@ -944,6 +944,15 @@ textarea, input, button, select {
   border-radius: 8px;
 }
 
+/* Brief highlight of the stage a deal has just moved to */
+@keyframes stage-new-flash {
+  0%   { box-shadow: 0 0 0 2px var(--acc); }
+  100% { box-shadow: 0 0 0 2px transparent; }
+}
+.qcard--new {
+  animation: stage-new-flash 1.2s ease-out;
+}
+
 /* --- Step navigation --- */
 
 .step-nav-mini {

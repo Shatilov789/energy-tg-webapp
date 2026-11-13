@@ -46,6 +46,10 @@ class ProgressNotFound(WorkflowError):
     pass
 
 
+class StageAlreadyCompleted(WorkflowError):
+    """The requested stage belongs to the deal but was already completed, e.g. from a stale tab."""
+
+
 class AmbiguousProgress(WorkflowError):
     """Several branches are in progress and the caller did not say which one to complete."""
 
@@ -208,15 +212,19 @@ async def advance_deal(
 
 def _select_progress(deal: Deal, progress_id: int | None) -> DealStageProgress:
     """Pick the in-progress row to complete: the requested one, or the only one there is."""
+    if progress_id is not None:
+        selected = next((p for p in deal.progress if p.id == progress_id), None)
+        if not selected:
+            raise ProgressNotFound(progress_id)
+        if selected.status == StageStatus.DONE:
+            raise StageAlreadyCompleted(progress_id)
+        if selected.status != StageStatus.IN_PROGRESS:
+            raise ProgressNotFound(progress_id)
+        return selected
+
     in_progress = [p for p in deal.progress if p.status == StageStatus.IN_PROGRESS]
     if not in_progress:
         raise NoStageInProgress(deal.id)
-
-    if progress_id is not None:
-        selected = next((p for p in in_progress if p.id == progress_id), None)
-        if not selected:
-            raise ProgressNotFound(progress_id)
-        return selected
 
     if len(in_progress) > 1:
         raise AmbiguousProgress([p.id for p in in_progress])

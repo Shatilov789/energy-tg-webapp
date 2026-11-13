@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
@@ -14,21 +14,33 @@ export default function DealPage() {
   const [viewIndex, setViewIndex] = useState(0);
   const [draft, setDraft] = useState({});
   const [saving, setSaving] = useState(false);
+  // Keeps "Далі" disabled briefly after a move, so a double tap cannot complete the next stage too.
+  const [cooldown, setCooldown] = useState(false);
+  const [highlightId, setHighlightId] = useState(null);
+  // Set synchronously: blocks a second click that arrives before React re-renders the disabled button.
+  const advancingRef = useRef(false);
+  const cooldownTimer = useRef(null);
   const showLoadingText = useDelayedLoadingText(loading);
   const bindSwipe = useHorizontalSwipe();
 
   useEffect(() => { loadData(); }, [dealId]);
+  useEffect(() => () => clearTimeout(cooldownTimer.current), []);
 
-  async function loadData(keepIndex) {
+  // Loads the deal and opens its latest stage. The draft survives only if that stage is the one
+  // the draft was typed for (keepDraftFor = its progress id).
+  async function loadData(keepDraftFor) {
     try {
       const dealData = await api.getDeal(dealId);
+      const latest = dealData.history[dealData.history.length - 1];
       setDeal(dealData);
-      setDraft({});
-      if (!keepIndex) {
-        setViewIndex(Math.max(0, dealData.history.length - 1));
+      setViewIndex(Math.max(0, dealData.history.length - 1));
+      if (keepDraftFor === undefined || latest?.id !== keepDraftFor) {
+        setDraft({});
       }
+      return latest;
     } catch (err) {
       console.error(err);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -56,6 +68,8 @@ export default function DealPage() {
       alert(`Оберіть: ${visit.yes_label || 'Так'} / ${visit.no_label || 'Ні'}`);
       return;
     }
+    if (advancingRef.current) return;
+    advancingRef.current = true;
     setSaving(true);
     try {
       await api.advanceDeal(dealId, {
@@ -63,10 +77,17 @@ export default function DealPage() {
         decision: draft.decision ?? null,
         comment: (draft.comment || '').trim() || null,
       });
-      await loadData();
+      const latest = await loadData();
+      setHighlightId(latest?.id ?? null);
+      setCooldown(true);
+      clearTimeout(cooldownTimer.current);
+      cooldownTimer.current = setTimeout(() => setCooldown(false), 1000);
     } catch (err) {
+      // E.g. the stage was already completed in another tab: explain, then show where the deal is now.
       alert(err.message);
+      await loadData(visit.id);
     } finally {
+      advancingRef.current = false;
       setSaving(false);
     }
   }
@@ -92,7 +113,11 @@ export default function DealPage() {
         {totalVisits === 0 && <div className="empty-state">Етапів поки немає</div>}
 
         {visit && (
-          <div className="qcard">
+          <div
+            key={visit.id}
+            className={`qcard${visit.id === highlightId ? ' qcard--new' : ''}`}
+            onAnimationEnd={() => setHighlightId(null)}
+          >
             <div className="qtitle" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {visit.is_decision && <IconGitBranch size={16} color="var(--acc)" />}
               {visit.stage_code}: {visit.stage_name}
@@ -138,7 +163,7 @@ export default function DealPage() {
                   value={draft.comment || ''}
                   onChange={e => setDraft(d => ({ ...d, comment: e.target.value }))}
                 />
-                <button className="btn-p" onClick={handleAdvance} disabled={saving}>
+                <button className="btn-p" onClick={handleAdvance} disabled={saving || cooldown}>
                   <IconSend size={18} /> {saving ? 'Збереження...' : 'Далі'}
                 </button>
               </div>
