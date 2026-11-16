@@ -30,9 +30,9 @@ def _to_http_error(exc: engine.WorkflowError) -> HTTPException:
         case engine.CatalogNotSeeded():
             return HTTPException(status.HTTP_409_CONFLICT, "Довідник етапів не заповнено")
         case engine.DealNotFound():
-            return HTTPException(status.HTTP_404_NOT_FOUND, "Угоду не знайдено")
+            return HTTPException(status.HTTP_404_NOT_FOUND, "Обʼєкт не знайдено")
         case engine.DealNotActive():
-            return HTTPException(status.HTTP_409_CONFLICT, "Угода неактивна")
+            return HTTPException(status.HTTP_409_CONFLICT, "Обʼєкт неактивний")
         case engine.NoStageInProgress():
             return HTTPException(status.HTTP_409_CONFLICT, "Немає етапу в роботі")
         case engine.ProgressNotFound():

@@ -65,7 +65,7 @@ export default function HomePage() {
     <div className="page">
       <div className="tbar">
         <div style={{ flex: 1 }}>
-          <h1>Мої угоди</h1>
+          <h1>Мої обʼєкти</h1>
           <div className="tbar-s">{active.length} активних</div>
         </div>
         <button className="fab-create" onClick={() => navigate('/deals/new')}>
@@ -99,7 +99,7 @@ export default function HomePage() {
             : (
               <div className="empty-state">
                 <IconClipboardOff size={40} />
-                Угод поки немає. Створіть першу!
+                Обʼєктів поки немає. Створіть перший!
               </div>
             )
         )}
@@ -110,7 +110,7 @@ export default function HomePage() {
             : (
               <div className="empty-state">
                 <IconClipboardOff size={40} />
-                Завершених угод поки немає
+                Завершених обʼєктів поки немає
               </div>
             )
         )}
@@ -119,7 +119,7 @@ export default function HomePage() {
       <div className="tabbar">
         <button className="tab on">
           <IconList size={22} />
-          <span>Угоди</span>
+          <span>Обʼєкти</span>
           <div className="tab-indicator" />
         </button>
         <button className="tab" onClick={() => navigate('/deals/new')}>

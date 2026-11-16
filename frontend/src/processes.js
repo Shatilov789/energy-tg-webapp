@@ -17,7 +17,7 @@ export const PROCESSES = [
   { key: 'Комерція', label: 'Комерція', hint: 'комерційний процес продажів', icon: IconBriefcase },
 ];
 
-export const DEAL_STATUS_LABELS = { active: 'В роботі', closed: 'Закрита', completed: 'Завершена' };
+export const DEAL_STATUS_LABELS = { active: 'В роботі', closed: 'Закритий', completed: 'Завершений' };
 
 export const STAGE_STATUS_LABELS = {
   pending: 'Очікує',

@@ -57,7 +57,7 @@ export default function DealPage() {
   }
 
   if (loading) return <div className="loading">{showLoadingText ? 'Завантаження...' : ''}</div>;
-  if (!deal) return <div className="error">Угоду не знайдено</div>;
+  if (!deal) return <div className="error">Обʼєкт не знайдено</div>;
 
   const history = deal.history;
   const totalVisits = history.length;
@@ -134,7 +134,7 @@ export default function DealPage() {
               <div className="stage-banner-title">У роботі паралельно:</div>
             ) : (
               <div className="stage-banner-title">
-                Угоду ще не завершено: у роботі {activeStages.length > 1 ? 'етапи' : 'етап'}:
+                Обʼєкт ще не завершено: у роботі {activeStages.length > 1 ? 'етапи' : 'етап'}:
               </div>
             )}
             <div className="stage-banner-list">

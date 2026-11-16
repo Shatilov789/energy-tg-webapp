@@ -53,7 +53,7 @@ export default function NewDealPage() {
         <button className="btn-bk" onClick={() => navigate('/')}>
           <IconChevronLeft size={20} />
         </button>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>Нова угода</div>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>Новий обʼєкт</div>
       </div>
 
       <div className="sc" style={{ paddingBottom: 32 }}>
@@ -106,7 +106,7 @@ export default function NewDealPage() {
           style={{ marginBottom: 24 }}
         >
           <IconCircleCheck size={18} />
-          {creating ? 'Створення...' : 'Створити угоду'}
+          {creating ? 'Створення...' : 'Створити обʼєкт'}
         </button>
 
         <div className="flbl" style={{ marginBottom: 8 }}>
