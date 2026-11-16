@@ -77,7 +77,7 @@ class Deal(Base):
     current_stage: Mapped["Stage | None"] = relationship()
     creator: Mapped["User"] = relationship()
     progress: Mapped[list["DealStageProgress"]] = relationship(
-        back_populates="deal", cascade="all, delete-orphan", order_by="DealStageProgress.created_at"
+        back_populates="deal", cascade="all, delete-orphan", order_by="[DealStageProgress.created_at, DealStageProgress.id]",
     )
 
     def __repr__(self) -> str:

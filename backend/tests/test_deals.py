@@ -163,6 +163,17 @@ async def test_parallel_branches_need_progress_id(client, worker_user, processes
 
 
 @pytest.mark.asyncio
+async def test_branches_keep_entry_order(client, worker_user, processes):
+    # Both branch rows share created_at; the page relies on a stable order to open the first one.
+    deal = await _to_fan_out(client, worker_user)
+    active_ids = [stage["id"] for stage in deal["active_stages"]]
+    history_ids = [stage["id"] for stage in deal["history"]]
+    assert active_ids == sorted(active_ids)
+    assert history_ids == sorted(history_ids)
+    assert history_ids[-2:] == active_ids
+
+
+@pytest.mark.asyncio
 async def test_unknown_progress_id(client, worker_user, processes):
     deal = await _to_fan_out(client, worker_user)
     response = await _advance(client, worker_user, deal["id"], progress_id=999999)

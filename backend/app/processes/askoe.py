@@ -177,8 +177,8 @@ TRANSITIONS: dict[str, dict] = {
     # Fan-out: signing the completion act splits into an independent client-feedback tail
     # (Sales) and a warehouse-writeoff/finance tail (Бухгалтерія/Кошторисник/Інженер), which
     # both must reach crm_closure before the deal completes (AND-join, same shape as СЕС).
-    "askoe_act_signing": {"parallel": ["askoe_feedback_request", "askoe_leftover_clarification"]},
-    "askoe_feedback_request": {"next": "askoe_crm_closure"},
+    "askoe_act_signing": {"next": "askoe_feedback_request"},
+    "askoe_feedback_request": {"next": "askoe_leftover_clarification"},
     "askoe_leftover_clarification": {"next": "askoe_warehouse_writeoff"},
     "askoe_warehouse_writeoff": {"next": "askoe_leftover_discrepancy_check"},
     "askoe_leftover_discrepancy_check": {

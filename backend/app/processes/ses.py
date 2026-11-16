@@ -160,8 +160,9 @@ TRANSITIONS: dict[str, dict] = {
     "handoff_to_pm": {"next": "team_formation"},
     "client_change_agreement": {"next": "additional_agreement"},
     "completion_act_request": {"next": "completion_act_formation"},
-    "act_signing": {"parallel": ["feedback_request", "leftover_clarification"]},
-    "feedback_request": {"next": "crm_closure"},
+    "act_signing": {"next": "feedback_request"},
+    # Feedback is optional to fill in, but the deal goes on to the leftovers either way.
+    "feedback_request": {"next": "leftover_clarification"},
     "crm_closure": {"terminal": "completed"},
     "assign_responsible_engineer": {"next": "client_needs_intake"},
     "client_needs_intake": {"next": "data_sufficient_client_intake"},

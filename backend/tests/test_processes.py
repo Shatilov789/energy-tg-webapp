@@ -87,3 +87,15 @@ def test_resolve_next_requires_decision_on_branch():
 def test_terminal_status():
     assert GRAPH.terminal_status("end") == "completed"
     assert GRAPH.terminal_status("linear") is None
+
+
+@pytest.mark.parametrize(
+    ("process_name", "prefix"),
+    [("СЕС", ""), ("АСКОЕ", "askoe_")],
+)
+def test_act_signing_runs_one_chain(process_name: str, prefix: str):
+    # After the act is signed, feedback (optional to fill in) comes first, then the leftovers;
+    # the feedback stage must not close the deal.
+    process = PROCESSES[process_name]
+    assert process.resolve_next(f"{prefix}act_signing", None) == [f"{prefix}feedback_request"]
+    assert process.resolve_next(f"{prefix}feedback_request", None) == [f"{prefix}leftover_clarification"]

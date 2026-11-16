@@ -6,6 +6,15 @@ import { useHorizontalSwipe } from '../hooks/useHorizontalSwipe';
 import { DEAL_STATUS_LABELS, STAGE_STATUS_LABELS } from '../processes';
 import { IconChevronLeft, IconCheck, IconX, IconSend, IconGitBranch, IconClock } from '@tabler/icons-react';
 
+// Which history card to open: a stage the last move just entered (so the person stays on their
+// branch), else the first stage still in work, else the latest record.
+function pickIndex(deal, activeBefore) {
+  const active = deal.active_stages || [];
+  const target = (activeBefore && active.find(s => !activeBefore.has(s.id))) || active[0];
+  const index = target ? deal.history.findIndex(v => v.id === target.id) : -1;
+  return index >= 0 ? index : Math.max(0, deal.history.length - 1);
+}
+
 export default function DealPage() {
   const { dealId } = useParams();
   const navigate = useNavigate();
@@ -26,18 +35,19 @@ export default function DealPage() {
   useEffect(() => { loadData(); }, [dealId]);
   useEffect(() => () => clearTimeout(cooldownTimer.current), []);
 
-  // Loads the deal and opens its latest stage. The draft survives only if that stage is the one
-  // the draft was typed for (keepDraftFor = its progress id).
-  async function loadData(keepDraftFor) {
+  // Loads the deal and opens the stage in work (see pickIndex). The draft survives only if that
+  // stage is the one the draft was typed for (keepDraftFor = its progress id).
+  async function loadData(keepDraftFor, activeBefore) {
     try {
       const dealData = await api.getDeal(dealId);
-      const latest = dealData.history[dealData.history.length - 1];
+      const index = pickIndex(dealData, activeBefore);
+      const opened = dealData.history[index];
       setDeal(dealData);
-      setViewIndex(Math.max(0, dealData.history.length - 1));
-      if (keepDraftFor === undefined || latest?.id !== keepDraftFor) {
+      setViewIndex(index);
+      if (keepDraftFor === undefined || opened?.id !== keepDraftFor) {
         setDraft({});
       }
-      return latest;
+      return opened;
     } catch (err) {
       console.error(err);
       return null;
@@ -54,6 +64,11 @@ export default function DealPage() {
   const visit = history[Math.min(viewIndex, totalVisits - 1)];
   const isActive = visit?.status === 'in_progress';
   const isDealActive = deal.status === 'active';
+  const activeStages = isDealActive ? deal.active_stages || [] : [];
+
+  function openStage(progressId) {
+    goTo(history.findIndex(v => v.id === progressId));
+  }
 
   function goTo(i) {
     if (i < 0 || i >= totalVisits) return;
@@ -77,8 +92,9 @@ export default function DealPage() {
         decision: draft.decision ?? null,
         comment: (draft.comment || '').trim() || null,
       });
-      const latest = await loadData();
-      setHighlightId(latest?.id ?? null);
+      const activeBefore = new Set(deal.active_stages.map(s => s.id));
+      const opened = await loadData(undefined, activeBefore);
+      setHighlightId(opened?.status === 'in_progress' ? opened.id : null);
       setCooldown(true);
       clearTimeout(cooldownTimer.current);
       cooldownTimer.current = setTimeout(() => setCooldown(false), 1000);
@@ -111,6 +127,35 @@ export default function DealPage() {
 
       <div className="sc" style={{ paddingTop: 8, paddingBottom: 16 }}>
         {totalVisits === 0 && <div className="empty-state">Етапів поки немає</div>}
+
+        {visit && (activeStages.length > 1 || (!isActive && activeStages.length > 0)) && (
+          <div className="stage-banner">
+            {isActive ? (
+              <div className="stage-banner-title">У роботі паралельно:</div>
+            ) : (
+              <div className="stage-banner-title">
+                Угоду ще не завершено: у роботі {activeStages.length > 1 ? 'етапи' : 'етап'}:
+              </div>
+            )}
+            <div className="stage-banner-list">
+              {activeStages.map(s => (
+                <button
+                  key={s.id}
+                  className={`stage-chip${s.id === visit.id ? ' stage-chip--current' : ''}`}
+                  onClick={() => openStage(s.id)}
+                  disabled={s.id === visit.id}
+                >
+                  {s.stage_code}: {s.stage_name}
+                </button>
+              ))}
+            </div>
+            {!isActive && activeStages.length === 1 && (
+              <button className="btn-s stage-banner-go" onClick={() => openStage(activeStages[0].id)}>
+                Перейти до етапу
+              </button>
+            )}
+          </div>
+        )}
 
         {visit && (
           <div

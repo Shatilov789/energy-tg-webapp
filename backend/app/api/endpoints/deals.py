@@ -147,8 +147,10 @@ def _to_progress_response(progress: DealStageProgress) -> DealStageProgressRespo
 
 
 def _to_detail(deal: Deal) -> DealDetailResponse:
-    history = [_to_progress_response(p) for p in sorted(deal.progress, key=lambda p: p.created_at)]
-    active = [_to_progress_response(p) for p in deal.progress if p.status == StageStatus.IN_PROGRESS]
+    # Rows entered in one transaction share created_at, so the id breaks the tie: branches keep a stable order.
+    ordered = sorted(deal.progress, key=lambda p: (p.created_at, p.id))
+    history = [_to_progress_response(p) for p in ordered]
+    active = [_to_progress_response(p) for p in ordered if p.status == StageStatus.IN_PROGRESS]
     return DealDetailResponse(
         **_to_list_item(deal).model_dump(),
         current_stage_is_decision=active[0].is_decision if len(active) == 1 else False,

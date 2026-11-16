@@ -953,6 +953,31 @@ textarea, input, button, select {
   animation: stage-new-flash 1.2s ease-out;
 }
 
+/* Deal stages still in work (parallel branches, or a finished branch waiting for the other) */
+.stage-banner {
+  background: rgba(167,139,250,.06);
+  border: 1.5px solid var(--acc);
+  border-radius: 14px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.stage-banner-title { font-size: 12px; color: var(--mu); margin-bottom: 6px; }
+.stage-banner-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.stage-chip {
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--tx, inherit);
+  background: var(--s1);
+  border: 1px solid var(--br);
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.stage-chip:hover { background: var(--s2); }
+.stage-chip--current, .stage-chip:disabled { border-color: var(--acc); cursor: default; opacity: 1; }
+.stage-banner-go { margin-top: 8px; width: 100%; }
+
 /* --- Step navigation --- */
 
 .step-nav-mini {
