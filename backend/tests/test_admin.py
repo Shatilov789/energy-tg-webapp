@@ -111,6 +111,20 @@ async def test_toggle_nonexistent_user(client: AsyncClient, admin_user: User):
     assert response.status_code == 404
 
 
+@pytest.mark.asyncio
+async def test_toggle_self_refused(client: AsyncClient, admin_user: User, db: AsyncSession):
+    """An admin cannot deactivate themselves: 400, and they stay active."""
+    response = await client.patch(
+        f"/api/admin/users/{admin_user.id}/toggle-active",
+        headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Не можна деактивувати себе"
+
+    await db.refresh(admin_user)
+    assert admin_user.is_active is True
+
+
 # ==================== Access control ====================
 
 

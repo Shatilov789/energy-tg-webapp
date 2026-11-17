@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { IconShield, IconTool, IconUserPlus } from '@tabler/icons-react';
 
 const TEXT_FIELDS = [
@@ -32,9 +32,17 @@ export default function CreateUserModal({ onCreate, onClose }) {
     }
   }
 
+  // Close only when the press also started on the backdrop: a text selection
+  // dragged out of the form must not discard what was typed.
+  const pressStartedOnBackdrop = useRef(false);
+
   return (
-    <div className="comment-overlay" onClick={onClose}>
-      <div className="comment-modal" onClick={e => e.stopPropagation()}>
+    <div
+      className="comment-overlay"
+      onMouseDown={e => { pressStartedOnBackdrop.current = e.target === e.currentTarget; }}
+      onClick={e => { if (pressStartedOnBackdrop.current && e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="comment-modal">
         <h3>Новий користувач</h3>
         {TEXT_FIELDS.map((field, index) => (
           <div className="fgrp" key={field.name} style={index === 0 ? { marginTop: 8 } : undefined}>

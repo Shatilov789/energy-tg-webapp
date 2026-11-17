@@ -18,7 +18,7 @@ from backend.app.models.object import Object, ObjectCriticality, ObjectWorker
 from backend.app.models.scenario import Scenario
 from backend.app.models.user import User
 from backend.app.schemas.comment import CommentCreate, CommentResponse
-from backend.app.schemas.error import RESPONSES_AUTH, RESPONSES_CRUD, RESPONSES_CRUD_CONFLICT
+from backend.app.schemas.error import RESPONSES_AUTH, RESPONSES_CRUD, RESPONSES_CRUD_CONFLICT, ErrorResponse
 from backend.app.schemas.object import AdminObjectResponse
 from backend.app.schemas.user import UserCreate, UserResponse
 from backend.app.services.audit import log_action
@@ -75,13 +75,20 @@ async def create_user(
     return user
 
 
-@router.patch("/users/{user_id}/toggle-active", response_model=UserResponse, responses=RESPONSES_CRUD)
+@router.patch(
+    "/users/{user_id}/toggle-active",
+    response_model=UserResponse,
+    responses={**RESPONSES_CRUD, 400: {"model": ErrorResponse, "description": "Cannot deactivate yourself"}},
+)
 async def toggle_user_active(
     user_id: int,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Activate or deactivate user."""
+    # Locking yourself out leaves no admin to undo it except a manual database fix.
+    if user_id == admin.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Не можна деактивувати себе")
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
