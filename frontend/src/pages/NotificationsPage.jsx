@@ -4,9 +4,6 @@ import { api } from '../api/client';
 import { useDelayedLoadingText } from '../hooks/useDelayedLoadingText';
 import {
   IconAlertCircle,
-  IconAlertTriangle,
-  IconMessage,
-  IconShare,
   IconBell,
   IconBellOff,
   IconChecks,
@@ -21,28 +18,10 @@ const TYPE_CONFIG = {
     icon: IconAlertCircle,
     bgColor: 'rgba(231,76,60,.12)',
     color: 'var(--err)',
-    actionLabel: 'Заповнити зараз',
+    actionLabel: 'Відкрити',
     actionColor: 'var(--err)',
     unreadCls: 'ni-unread-error',
     dotColor: 'var(--err)',
-  },
-  admin_comment: {
-    icon: IconMessage,
-    bgColor: 'rgba(59,139,235,.12)',
-    color: 'var(--acc2)',
-    actionLabel: 'Переглянути',
-    actionColor: 'var(--acc2)',
-    unreadCls: 'ni-unread-info',
-    dotColor: 'var(--acc2)',
-  },
-  object_shared: {
-    icon: IconShare,
-    bgColor: 'rgba(46,204,113,.12)',
-    color: 'var(--ok)',
-    actionLabel: null,
-    actionColor: null,
-    unreadCls: 'ni-unread-success',
-    dotColor: 'var(--ok)',
   },
   step_comment: {
     icon: IconMessageCircle,
@@ -52,33 +31,6 @@ const TYPE_CONFIG = {
     actionColor: 'var(--acc2)',
     unreadCls: 'ni-unread-info',
     dotColor: 'var(--acc2)',
-  },
-  worker_assigned: {
-    icon: IconShare,
-    bgColor: 'rgba(61,190,122,.12)',
-    color: 'var(--ok)',
-    actionLabel: 'Відкрити',
-    actionColor: 'var(--ok)',
-    unreadCls: 'ni-unread-success',
-    dotColor: 'var(--ok)',
-  },
-  worker_removed: {
-    icon: IconAlertTriangle,
-    bgColor: 'rgba(232,168,56,.12)',
-    color: 'var(--warn)',
-    actionLabel: null,
-    actionColor: null,
-    unreadCls: '',
-    dotColor: 'var(--mu)',
-  },
-  object_completed: {
-    icon: IconChecks,
-    bgColor: 'rgba(61,190,122,.12)',
-    color: 'var(--ok)',
-    actionLabel: 'Переглянути',
-    actionColor: 'var(--ok)',
-    unreadCls: 'ni-unread-success',
-    dotColor: 'var(--ok)',
   },
 };
 
@@ -205,11 +157,7 @@ export default function NotificationsPage() {
                           style={{ background: cfg.actionColor }}
                           onClick={e => {
                             e.stopPropagation();
-                            if (n.object_id && n.step_number) {
-                              navigate(`/objects/${n.object_id}/steps/${n.step_number}`);
-                            } else {
-                              navigate('/');
-                            }
+                            navigate(n.deal_id ? `/deals/${n.deal_id}` : '/');
                           }}
                         >
                           {cfg.actionLabel}
@@ -238,7 +186,7 @@ export default function NotificationsPage() {
           <IconList size={22} />
           <span>Обʼєкти</span>
         </button>
-        <button className="tab" onClick={() => navigate('/objects')}>
+        <button className="tab" onClick={() => navigate('/deals/new')}>
           <IconPlus size={22} />
           <span>Створити</span>
         </button>

@@ -12,7 +12,6 @@ from backend.app.db.base import Base
 from backend.app.db.session import async_session, engine
 from backend.app.processes.catalog import seed_process_catalog
 from backend.app.services.bot import start_bot, stop_bot
-from backend.app.services.scheduler import start_scheduler, stop_scheduler
 from backend.app.services.seed import ensure_configured_admin, seed_dev_admin
 
 logging.basicConfig(
@@ -46,13 +45,11 @@ async def lifespan(app: FastAPI):
         await ensure_configured_admin(db)
         await seed_process_catalog(db)
 
-    start_scheduler()
     await start_bot()
 
     yield
 
     await stop_bot()
-    stop_scheduler()
     await engine.dispose()
     logger.info("Shutdown complete")
 

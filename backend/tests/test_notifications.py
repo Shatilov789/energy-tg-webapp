@@ -7,17 +7,15 @@ Covers:
 - Marking all as read brings the counter to 0.
 - Isolation: a worker does not see another worker's notifications.
 
-Notification types:
-- REMINDER: unfilled step reminder (background job).
-- ADMIN_COMMENT: an admin commented on an answer.
-- OBJECT_SHARED: an object was shared with a worker.
-- STEP_UNLOCKED: an admin unlocked a step for editing.
+Notifications are created by the features that need them (stage threads, reminders);
+these tests only cover reading and marking them.
 """
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.models.deal import Deal
 from backend.app.models.notification import Notification, NotificationType
 from backend.app.models.user import User
 
@@ -74,7 +72,7 @@ async def test_mark_read(client: AsyncClient, worker_user: User, db: AsyncSessio
     """PATCH /notifications/{id}/read marks one notification read and lowers the counter by 1."""
     notif = Notification(
         user_id=worker_user.id,
-        type=NotificationType.ADMIN_COMMENT,
+        type=NotificationType.STEP_COMMENT,
         title="Comment",
         message="Admin left a note",
     )
@@ -140,3 +138,29 @@ async def test_notification_isolation(client: AsyncClient, worker_user: User, se
         headers={"X-Dev-Telegram-Id": str(second_worker.telegram_id)},
     )
     assert count_res.json()["count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_notification_points_at_process_object(client: AsyncClient, worker_user: User, db: AsyncSession):
+    """A notification carries the process object it is about, so the app can open it."""
+    deal = Deal(client_name="Клієнт", client_phone="+380000000000", created_by_id=worker_user.id)
+    db.add(deal)
+    await db.flush()
+    db.add(
+        Notification(
+            user_id=worker_user.id,
+            type=NotificationType.STEP_COMMENT,
+            title="Нове повідомлення",
+            message="msg",
+            deal_id=deal.id,
+        )
+    )
+    await db.commit()
+
+    response = await client.get(
+        "/api/notifications/",
+        headers={"X-Dev-Telegram-Id": str(worker_user.telegram_id)},
+    )
+    item = response.json()[0]
+    assert item["deal_id"] == deal.id
+    assert item["progress_id"] is None

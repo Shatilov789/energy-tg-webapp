@@ -6,21 +6,17 @@ Covers:
 - Listing all users.
 - Deactivating/activating a user (toggle).
 - Workers are refused on admin endpoints: 403.
-- Commenting on an answer: 201, and the worker is notified.
-- Unlocking an answer: 200, and the worker is notified.
+- An admin cannot deactivate themselves: 400.
 
 Roles:
-- admin: full access; sees everything, manages users, comments, unlocks.
-- worker: only their own objects and steps; cannot manage users.
+- admin: manages users.
+- worker: cannot manage users.
 """
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.models.notification import Notification, NotificationType
-from backend.app.models.scenario import Scenario, ScenarioStep
 from backend.app.models.user import User
 
 # ==================== User management ====================
@@ -143,116 +139,3 @@ async def test_worker_cannot_access_admin_endpoints(client: AsyncClient, worker_
             headers=headers,
         )
     ).status_code == 403
-    # GET /admin/objects
-    assert (await client.get("/api/admin/objects", headers=headers)).status_code == 403
-
-
-# ==================== Comments ====================
-
-
-async def _create_answer(client: AsyncClient, db: AsyncSession, worker: User) -> tuple[int, int]:
-    """Helper: scenario + object + answer. Returns (answer_id, worker_id)."""
-    scenario = Scenario(name="Comment Test", description="test")
-    db.add(scenario)
-    await db.flush()
-    step = ScenarioStep(scenario_id=scenario.id, step_number=1, question_text="Q?")
-    db.add(step)
-    await db.commit()
-    await db.refresh(step)
-
-    worker_h = {"X-Dev-Telegram-Id": str(worker.telegram_id)}
-    obj_res = await client.post(
-        "/api/objects/",
-        json={"name": "Comment Obj", "scenario_id": scenario.id},
-        headers=worker_h,
-    )
-    answer_res = await client.post(
-        f"/api/objects/{obj_res.json()['id']}/steps/{step.id}/answer",
-        json={"answer_text": "My answer"},
-        headers=worker_h,
-    )
-    return answer_res.json()["id"], worker.id
-
-
-@pytest.mark.asyncio
-async def test_admin_comment_on_answer(client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession):
-    """An admin comments on a worker's answer and the comment is saved."""
-    answer_id, _ = await _create_answer(client, db, worker_user)
-
-    comment_res = await client.post(
-        f"/api/admin/answers/{answer_id}/comment",
-        json={"comment_text": "Please clarify"},
-        headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
-    )
-    assert comment_res.status_code == 201
-    assert comment_res.json()["comment_text"] == "Please clarify"
-    assert comment_res.json()["admin_id"] == admin_user.id
-
-
-@pytest.mark.asyncio
-async def test_admin_comment_creates_notification(
-    client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession
-):
-    """Commenting creates an ADMIN_COMMENT notification for the worker."""
-    answer_id, worker_id = await _create_answer(client, db, worker_user)
-
-    await client.post(
-        f"/api/admin/answers/{answer_id}/comment",
-        json={"comment_text": "Need more details"},
-        headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
-    )
-
-    # Check the notification in the database
-    result = await db.execute(
-        select(Notification).where(
-            Notification.user_id == worker_id,
-            Notification.type == NotificationType.ADMIN_COMMENT,
-        )
-    )
-    notif = result.scalar_one_or_none()
-    assert notif is not None
-    assert "comment" in notif.title.lower() or "comment" in notif.message.lower()
-
-
-@pytest.mark.asyncio
-async def test_comment_on_nonexistent_answer(client: AsyncClient, admin_user: User):
-    """Commenting on an answer that does not exist: 404."""
-    response = await client.post(
-        "/api/admin/answers/99999/comment",
-        json={"comment_text": "Ghost comment"},
-        headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
-    )
-    assert response.status_code == 404
-
-
-# ==================== Unlock ====================
-
-
-@pytest.mark.asyncio
-async def test_unlock_creates_notification(client: AsyncClient, admin_user: User, worker_user: User, db: AsyncSession):
-    """Unlocking creates a STEP_UNLOCKED notification, so the worker knows they can edit."""
-    answer_id, worker_id = await _create_answer(client, db, worker_user)
-
-    await client.patch(
-        f"/api/admin/answers/{answer_id}/unlock",
-        headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
-    )
-
-    result = await db.execute(
-        select(Notification).where(
-            Notification.user_id == worker_id,
-            Notification.type == NotificationType.STEP_UNLOCKED,
-        )
-    )
-    notif = result.scalar_one_or_none()
-    assert notif is not None
-
-
-@pytest.mark.asyncio
-async def test_unlock_nonexistent_answer(client: AsyncClient, admin_user: User):
-    """Unlocking an answer that does not exist: 404."""
-    response = await client.patch(
-        "/api/admin/answers/99999/unlock",
-        headers={"X-Dev-Telegram-Id": str(admin_user.telegram_id)},
-    )
-    assert response.status_code == 404

@@ -29,7 +29,6 @@ class AuditLog(Base):
     action: Mapped[AuditAction] = mapped_column(Enum(AuditAction), index=True)
     entity_type: Mapped[str] = mapped_column(String(50), index=True)
     entity_id: Mapped[int | None] = mapped_column(Integer)
-    object_id: Mapped[int | None] = mapped_column(ForeignKey("objects.id"), index=True)
     deal_id: Mapped[int | None] = mapped_column(ForeignKey("deals.id"), index=True)
     details: Mapped[str | None] = mapped_column(Text)
     ip_address: Mapped[str | None] = mapped_column(String(45))

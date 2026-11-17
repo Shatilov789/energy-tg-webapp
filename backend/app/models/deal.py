@@ -1,6 +1,6 @@
 """Business process models: Deal, Stage catalog, DealStageProgress, DealStageComment.
 
-Multi-role handoff pipeline (12 roles), separate from Object/ScenarioStep (single-worker inspections).
+Multi-role handoff pipeline; in the interface a deal is called an object («Обʼєкт»).
 Each process is defined in backend/app/processes/.
 """
 
@@ -113,7 +113,7 @@ class DealStageProgress(Base):
 
 
 class DealStageComment(Base):
-    """Discussion thread on a deal stage visit — mirrors StepComment's shape."""
+    """Discussion thread on a deal stage visit."""
 
     __tablename__ = "deal_stage_comments"
 

@@ -1,4 +1,4 @@
-"""Notification model — reminders and admin comment alerts."""
+"""Notification model — in-app alerts about process objects, mirrored to Telegram."""
 
 import enum
 from datetime import datetime
@@ -10,14 +10,9 @@ from backend.app.db.base import Base
 
 
 class NotificationType(str, enum.Enum):
+    # Stored as a plain string (no database enum), so adding a kind needs no migration.
     REMINDER = "reminder"
-    ADMIN_COMMENT = "admin_comment"
-    OBJECT_SHARED = "object_shared"
-    STEP_UNLOCKED = "step_unlocked"
     STEP_COMMENT = "step_comment"
-    WORKER_ASSIGNED = "worker_assigned"
-    WORKER_REMOVED = "worker_removed"
-    OBJECT_COMPLETED = "object_completed"
 
 
 class Notification(Base):
@@ -25,12 +20,15 @@ class Notification(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    type: Mapped[NotificationType] = mapped_column(Enum(NotificationType))
+    type: Mapped[NotificationType] = mapped_column(Enum(NotificationType, native_enum=False, length=50))
     title: Mapped[str] = mapped_column(String(255))
     message: Mapped[str] = mapped_column(Text)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
-    object_id: Mapped[int | None] = mapped_column(ForeignKey("objects.id", ondelete="SET NULL"), nullable=True)
-    step_number: Mapped[int | None] = mapped_column(nullable=True)
+    deal_id: Mapped[int | None] = mapped_column(ForeignKey("deals.id", ondelete="CASCADE"), nullable=True)
+    # The stage visit the notification is about, so the app can open that stage.
+    progress_id: Mapped[int | None] = mapped_column(
+        ForeignKey("deal_stage_progress.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships

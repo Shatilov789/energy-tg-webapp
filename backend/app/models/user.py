@@ -31,9 +31,6 @@ class User(SoftDeleteMixin, Base):
     )
 
     # Relationships
-    created_objects: Mapped[list["Object"]] = relationship(back_populates="creator")
-    answers: Mapped[list["ObjectAnswer"]] = relationship(back_populates="answered_by_user")
-    comments: Mapped[list["AdminComment"]] = relationship(back_populates="admin")
     notifications: Mapped[list["Notification"]] = relationship(back_populates="user")
 
     def __repr__(self) -> str:

@@ -18,8 +18,8 @@ async def notify(
     title: str,
     message: str,
     push_text: str,
-    object_id: int | None = None,
-    step_number: int | None = None,
+    deal_id: int | None = None,
+    progress_id: int | None = None,
 ) -> None:
     """Record a notification now and send its push only once the transaction has committed."""
     db.add(
@@ -28,8 +28,8 @@ async def notify(
             type=notification_type,
             title=title,
             message=message,
-            object_id=object_id,
-            step_number=step_number,
+            deal_id=deal_id,
+            progress_id=progress_id,
         )
     )
     await db.flush()

@@ -41,32 +41,6 @@ export const api = {
   // Auth
   getMe: () => request('/auth/me'),
 
-  // Scenarios
-  getScenarios: () => request('/scenarios/'),
-  getScenario: (id) => request(`/scenarios/${id}`),
-
-  // Objects
-  getMyObjects: () => request('/objects/'),
-  getObject: (id) => request(`/objects/${id}`),
-  createObject: (data) => request('/objects/', { method: 'POST', body: JSON.stringify(data) }),
-  shareObject: (objectId, userId) => request(`/objects/${objectId}/share/${userId}`, { method: 'POST' }),
-
-  // Steps / Answers
-  submitAnswer: (objectId, stepId, data) =>
-    request(`/objects/${objectId}/steps/${stepId}/answer`, { method: 'POST', body: JSON.stringify(data) }),
-  updateAnswer: (objectId, stepId, data) =>
-    request(`/objects/${objectId}/steps/${stepId}/answer`, { method: 'PUT', body: JSON.stringify(data) }),
-
-  // Step status notes (the step's status log)
-  getStatusNotes: (objectId, stepId) => request(`/objects/${objectId}/steps/${stepId}/status-notes`),
-  addStatusNote: (objectId, stepId, data) =>
-    request(`/objects/${objectId}/steps/${stepId}/status-notes`, { method: 'POST', body: JSON.stringify(data) }),
-
-  // Step discussion
-  getStepComments: (objectId, stepId) => request(`/objects/${objectId}/steps/${stepId}/comments`),
-  addStepComment: (objectId, stepId, data) =>
-    request(`/objects/${objectId}/steps/${stepId}/comments`, { method: 'POST', body: JSON.stringify(data) }),
-
   // Colleagues
   getColleagues: () => request('/users/'),
 
@@ -76,20 +50,8 @@ export const api = {
   markRead: (id) => request(`/notifications/${id}/read`, { method: 'PATCH' }),
   markAllRead: () => request('/notifications/read-all', { method: 'PATCH' }),
 
-  // Objects — criticality + audit
-  updateCriticality: (objectId, criticality) =>
-    request(`/objects/${objectId}/criticality`, { method: 'PATCH', body: JSON.stringify({ criticality }) }),
-  getObjectAudit: (objectId) => request(`/objects/${objectId}/audit`),
-
   // Admin
-  getAdminObjects: () => request('/admin/objects'),
   getAdminUsers: () => request('/admin/users'),
-  addWorker: (objectId, userId) =>
-    request(`/admin/objects/${objectId}/workers/${userId}`, { method: 'POST' }),
-  removeWorker: (objectId, userId) =>
-    request(`/admin/objects/${objectId}/workers/${userId}`, { method: 'DELETE' }),
-  addComment: (answerId, data) =>
-    request(`/admin/answers/${answerId}/comment`, { method: 'POST', body: JSON.stringify(data) }),
   createUser: (data) =>
     request('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
   toggleUserActive: (userId) =>
